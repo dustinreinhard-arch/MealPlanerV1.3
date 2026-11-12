@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e1113">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MealPrep">
+<title>MealPrep Tracker</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="stylesheet" href="app.css">
+<style>
+  .boot { display: grid; place-items: center; height: 100vh; height: 100dvh; padding: 24px; text-align: center; color: var(--muted); }
+  .boot img { width: 64px; height: 64px; margin-bottom: 14px; }
+  .boot b { display: block; color: var(--text); font-size: 17px; margin-bottom: 4px; }
+  .boot.err b { color: var(--red); }
+</style>
+</head>
+<body>
+<div id="boot" class="boot"><div><img src="icon.svg" alt=""><b>MealPrep Tracker</b><span id="bootMsg">Wird geladen …</span></div></div>
+<div id="app" hidden>
+  <nav class="side" id="nav"></nav>
+  <main id="view"></main>
+</div>
+<div id="modal" class="modal" hidden></div>
+<div id="toast" class="toast" hidden></div>
+<div id="offline" class="offline" hidden><div class="offline-box"><h2>Fehler</h2><p>Bitte die App neu öffnen.</p></div></div>
+<script src="wasm_exec.js"></script>
+<script>
+(function () {
+  try { if (localStorage.getItem('mealprep-theme') === 'light') document.documentElement.dataset.theme = 'light'; } catch (e) {}
+  var bootErr = function (msg) {
+    var b = document.getElementById('boot'); b.classList.add('err');
+    b.querySelector('b').textContent = 'Die App konnte nicht starten';
+    document.getElementById('bootMsg').textContent = msg;
+  };
+  if (!('WebAssembly' in window)) return bootErr('Dein Browser ist zu alt. Bitte Chrome oder Safari aktualisieren.');
+  window.mpReady = function (err) {
+    if (err) return bootErr(err);
+    document.getElementById('boot').remove();
+    document.getElementById('app').hidden = false;
+    var s = document.createElement('script'); s.src = 'app.js'; document.body.appendChild(s);
+  };
+  var go = new Go();
+  var load = WebAssembly.instantiateStreaming
+    ? WebAssembly.instantiateStreaming(fetch('main.wasm'), go.importObject).catch(function () {
+        return fetch('main.wasm').then(function (r) { return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, go.importObject); });
+      })
+    : fetch('main.wasm').then(function (r) { return r.arrayBuffer(); }).then(function (b) { return WebAssembly.instantiate(b, go.importObject); });
+  load.then(function (res) { go.run(res.instance); })
+      .catch(function (e) { bootErr('Laden fehlgeschlagen (' + e.message + '). Beim ersten Start braucht die App Internet.'); });
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    // Neue Version auf dem Server: Sobald sie geladen ist, einmal neu starten (Daten bleiben erhalten).
+    var hadController = !!navigator.serviceWorker.controller, reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (hadController && !reloaded) { reloaded = true; location.reload(); }
+    });
+    navigator.serviceWorker.register('sw.js').then(function (r) { if (navigator.onLine) r.update().catch(function () {}); }).catch(function () {});
+  }
+})();
+</script>
+</body>
+</html>

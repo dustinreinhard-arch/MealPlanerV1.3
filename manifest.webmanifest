@@ -1,0 +1,59 @@
+{
+  "name": "MealPrep Tracker",
+  "short_name": "MealPrep",
+  "description": "Essensplan, Vorrat, Budget und Tagesbilanz – offline, ohne Konto.",
+  "lang": "de",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e1113",
+  "theme_color": "#0e1113",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Heute",
+      "short_name": "Heute",
+      "description": "Gerichte, kcal und Protein von heute",
+      "url": "./?v=heute",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Einkaufsliste",
+      "short_name": "Einkauf",
+      "description": "Einkaufsliste nach Supermarkt-Bereichen",
+      "url": "./?v=einkauf",
+      "icons": [
+        {
+          "src": "icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "id": "./"
+}
