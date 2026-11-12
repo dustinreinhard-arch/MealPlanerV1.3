@@ -1,7 +1,7 @@
 // Offline-Cache: alle App-Dateien werden beim ersten Start gespeichert.
 // Beim Update werden die Dateien frisch vom Server geholt (cache: 'reload'), nicht aus dem Browser-Zwischenspeicher.
 // Die Daten selbst liegen nicht hier, sondern im Speicher der App (localStorage).
-const CACHE = 'mealprep-cd998d679d';
+const CACHE = 'mealprep-46e1361731';
 const FILES = ['./', 'index.html', 'app.js', 'app.css', 'icon.svg', 'wasm_exec.js', 'main.wasm', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'heute.html', 'einkaufsliste.html'];
 self.addEventListener('install', e => {

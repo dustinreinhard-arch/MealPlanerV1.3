@@ -247,7 +247,7 @@ function todayCard() {
         <label class="f" style="width:90px">kcal <input type="number" name="kcal" min="0" step="1" required></label>
         <label class="f" style="width:100px">Protein (g) <input type="number" name="protein" min="0" step="0.1" value="0" required></label>
         <button class="btn primary">Speichern</button><button type="button" class="btn ghost" data-act="extra-toggle">Abbrechen</button></form>`
-    : `<button class="link" data-act="extra-toggle" style="margin-top:12px">+ Etwas anderes gegessen</button>`;
+    : `${quickExtraChips(d.date)}<button class="link" data-act="extra-toggle" style="margin-top:12px">+ Etwas anderes gegessen</button>`;
   const empty = d.meals.length ? '' : `<p class="empty">Für diesen Tag ist kein Gericht geplant. Du kannst trotzdem Shake und Extras eintragen.</p>`;
   return `<section class="card c-7">
     <div class="card-head"><div><h2>${isToday ? 'Heute' : fmtLong(d.date)}</h2><span class="sub">${isToday ? fmtLong(d.date) : rel(d.date)}</span></div>
@@ -258,6 +258,7 @@ function todayCard() {
 }
 function tasks() {
   const out = [], t = S.today, tomorrow = addDays(t, 1);
+  (S.thaw || []).forEach(h => out.push(`<div class="task ${h.now ? 'bad' : 'warn'}"><div class="dot">${ic('snow')}</div><div class="body"><b>${h.now ? 'Jetzt auftauen' : 'Heute Abend auftauen'}: ${esc(h.name)} (${amt(h.ing, h.g)})</b><span>Für ${esc(h.for)} ${h.now ? 'heute' : 'morgen'} – nur eingefroren im Vorrat. ${h.now ? 'Am schnellsten im kalten Wasserbad oder per Auftaufunktion.' : 'Über Nacht im Kühlschrank auftauen lassen.'}</span></div></div>`));
   const cookTask = (b, cls, label) => out.push(`<div class="task ${cls}"><div class="dot">${ic('pot')}</div>
       <div class="body"><b>${label}: ${esc(b.short)} ×${b.portions}</b><span>ca. ${b.minutes} Min.${b.missing.length ? ' · fehlt im Vorrat: ' + esc(b.missing.map(m => m.name).join(', ')) : ''}</span></div>
       <button class="btn sm ghost" data-act="cookmode" data-id="${b.recipe}" data-batch="${b.id}">Kochmodus</button>
@@ -333,10 +334,10 @@ VIEWS.dashboard = () => {
     ${reviewCard()}${todayCard()}
     <section class="card c-5"><div class="card-head"><h2>Tagesbilanz</h2><span class="sub">${d.date === S.today ? 'heute' : fmtShort(d.date)} · inkl. Shake</span></div>
       ${gauge('gegessen', d.eatenKcal, d.plannedKcal, 'kcal', set.kcalMin, set.kcalMax)}
-      ${gauge('Protein', d.eatenProtein, d.plannedProtein, 'g', set.proteinMin, 0)}</section>
+      ${gauge('Protein', d.eatenProtein, d.plannedProtein, 'g', set.proteinMin, 0)}${fillBox()}</section>
     <section class="card c-7"><div class="card-head"><h2>Als Nächstes</h2></div>${tasks()}</section>
     <section class="card c-5"><div class="card-head"><h2>Woche ${curWeek()}</h2><button class="link" data-act="nav" data-view="plan">Wochenplan</button></div>${weekStrip()}</section>
-    ${budgetCard()}${pantryCard()}${shopCard()}
+    ${fridgeCard()}${budgetCard()}${pantryCard()}${shopCard()}
   </div>`;
 };
 
@@ -987,6 +988,7 @@ function quickHeute() {
     <div class="q-stats">${qStat('Kalorien', kcal, s.kcalMin, s.kcalMax, 'kcal')}${qStat('Protein', prot, s.proteinMin, 0, 'g')}</div>
     <div class="q-list">${rows.join('')}</div>
     ${d.meals.length ? '' : '<p class="q-empty">Heute ist kein Gericht geplant.</p>'}
+    ${fillBox(true)}${quickExtraChips(d.date)}
     ${skipped ? `<p class="q-foot">${skipped === 1 ? 'Ein Gericht ist' : `${skipped} Gerichte sind`} heute ausgelassen.</p>` : ''}
     <p class="q-foot">Antippen hakt ab, nochmal antippen nimmt es zurück. Extras und Tauschen findest du unter „Ganze App“.</p>`;
 }
@@ -1099,6 +1101,36 @@ if (!WEB) {
     if (!/\.json$/i.test(f.name)) return toast('Bitte die Sync-Datei (.json) hineinziehen.', true);
     syncFile(f);
   });
+}
+
+// ---------- Kühlschrank, Schnell-Extras, Protein-Lückenfüller ----------
+function fridgeCard() {
+  const cooked = S.batches.filter(b => b.cooked && b.left > 0).sort((a, b) => a.expires.localeCompare(b.expires));
+  const frozen = S.lots.filter(l => l.frozen);
+  if (!cooked.length && !frozen.length && !(S.thaw || []).length) return '';
+  const row = b => {
+    const left = diffDays(S.today, b.expires), cls = left < 0 ? 'bad' : left <= 1 ? 'warn' : 'ok';
+    const next = S.weeks.flatMap(w => w.days).flatMap(d => d.meals).filter(m => m.batch === b.id && m.status === 'offen').map(m => m.date).sort()[0];
+    return `<li class="fr ${cls}"><div><b>${esc(b.short)}</b> <span class="muted">×${b.left}</span>
+      <div class="sub">${left < 0 ? `seit ${fmtShort(b.expires)} über der Haltbarkeit` : left === 0 ? 'hält bis heute' : `hält bis ${fmtShort(b.expires)}`}${next ? ` · nächste Portion ${next === S.today ? 'heute' : fmtShort(next)}` : ''}${b.keepWarn ? ' · eine Portion einfrieren' : ''}</div></div>
+      <span class="pill ${cls}">${left < 0 ? 'abgelaufen' : left === 0 ? 'heute' : left === 1 ? '1 Tag' : left + ' Tage'}</span></li>`;
+  };
+  return `<section class="card c-5"><div class="card-head"><h2>Kühlschrank</h2><span class="sub">gekochte Portionen</span></div>
+    ${cooked.length ? `<ul class="fridge">${cooked.map(row).join('')}</ul>` : '<p class="muted small">Gerade keine vorgekochten Portionen.</p>'}
+    ${frozen.length ? `<p class="muted small" style="margin-top:10px">${ic('snow')} Im Tiefkühler: ${frozen.map(l => `${esc(l.name)} ${amt(l.ing, l.g)}`).join(', ')}</p>` : ''}</section>`;
+}
+function quickExtraChips(date) {
+  const q = S.quickExtras || [];
+  if (!q.length) return '';
+  return `<div class="qx-row"><span class="muted small">Schnell eintragen:</span>${q.map((x, i) => `<button class="chip qx" data-act="qx-add" data-i="${i}" data-date="${date}" title="${esc(x.name)}: ${num(x.kcal)} kcal, ${nf1.format(x.protein)} g Protein">+ ${esc(x.name)} <span>${num(x.kcal)} kcal</span></button>`).join('')}</div>`;
+}
+function fillBox(compact) {
+  const f = S.fill;
+  if (!f || S.day.date !== S.today) return '';
+  const opts = f.options.map((o, i) => `<button class="fill-opt ${o.overKcal ? 'over' : ''}" data-act="fill-add" data-i="${i}">
+      <span><b>${esc(o.label)} ${esc(o.name)}</b><em>${num(o.kcal)} kcal · ${nf1.format(o.protein)} g Protein${o.protein < f.gap - 2 ? ` · deckt ${num(o.protein)} von ${num(f.gap)} g` : ''}${o.overKcal ? ' · über dem kcal-Ziel' : ''}</em></span><i>Eintragen</i></button>`).join('');
+  return `<div class="pfill ${compact ? 'compact' : ''}"><b>Heute fehlen noch ${num(f.gap)} g Protein</b> <span class="muted small">(noch ${num(Math.max(0, f.kcalRoom))} kcal Luft)</span>
+    ${opts ? `<div class="fill-opts">${opts}</div><span class="muted small">Aus deinem Vorrat – „Eintragen“ bucht es als Extra und zieht es vom Vorrat ab.</span>` : '<p class="muted small">Im Vorrat ist gerade kein passender Eiweiß-Snack (z. B. Skyr, Magerquark, Eier).</p>'}</div>`;
 }
 
 // ---------- Plan-Generator ----------
@@ -1447,6 +1479,8 @@ function closeModal() {
 const ACT = {
   more() { ui.modal = { type: 'more' }; renderModal(); },
   quick(d) { enterQuick(d.q); },
+  'qx-add'(d) { const x = S.quickExtras[+d.i]; call('/api/extra/add', { date: d.date || S.day.date, name: x.name, kcal: x.kcal, protein: x.protein }); },
+  'fill-add'(d) { const o = S.fill.options[+d.i]; call('/api/extra/add', { date: S.today, name: `${o.label} ${o.name}`, kcal: o.kcal, protein: o.protein, ing: o.ing, g: o.g }); },
   undo(d) {
     $('#toast').hidden = true;
     if (ui.modal && ui.modal.type === 'syncrep') { ui.modal = null; renderModal(); }
