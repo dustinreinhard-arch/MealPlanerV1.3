@@ -588,3 +588,15 @@ body.dropping::after { content: "Sync-Datei loslassen zum Zusammenführen"; posi
 .q .pfill { margin-top: 18px; font-size: 16px; }
 .q .fill-opt { min-height: 60px; font-size: 17px; }
 .q .qx-row .chip.qx { font-size: 15px; padding: 9px 14px; }
+
+/* Vorgekochtes bearbeiten */
+.li.prep { flex-wrap: wrap; gap: 8px 14px; }
+.li.prep .n { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.prep-act { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.stepper { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 10px; padding: 2px; }
+.stepper .icon-btn { width: 34px; height: 34px; font-size: 18px; font-weight: 700; }
+.stepper b { min-width: 92px; text-align: center; font-size: 14px; }
+[hidden] { display: none !important; }
+.card-head.stack-head { flex-direction: column; align-items: flex-start; gap: 2px; }
+.toast.has-undo span { flex: 1; min-width: 0; }
+@media (max-width: 680px) { .toast { width: min(92vw, 420px); } .prep-act { margin-left: 0; width: 100%; } .prep-act .stepper { margin-right: auto; } }

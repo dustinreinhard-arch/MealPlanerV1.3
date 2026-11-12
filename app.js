@@ -746,9 +746,18 @@ VIEWS.vorrat = () => {
     }
   });
   const prep = S.batches.filter(b => b.cooked && b.left > 0);
-  const prepHtml = prep.length ? `<section class="card" style="margin-bottom:16px"><div class="card-head"><h2>Vorgekocht im Kühlschrank</h2></div><div class="list">${prep.map(b =>
-    `<div class="li"><span class="n"><b>${esc(b.short)}</b> <span class="muted">· gekocht ${fmtShort(b.cookedAt)}</span></span><span class="tag ${b.expires < S.today ? 'bad' : 'ok'}">${b.left} ${b.left === 1 ? 'Portion' : 'Portionen'} · haltbar bis ${fmtShort(b.expires)}</span></div>`).join('')}</div></section>` : '';
+  const prepHtml = prep.length ? `<section class="card" style="margin-bottom:16px"><div class="card-head stack-head"><h2>Vorgekocht im Kühlschrank</h2><span class="sub">Portionen anpassen, entfernen oder „Nicht gekocht“, falls aus Versehen abgehakt</span></div><div class="list">${prep.map(b =>
+    `<div class="li prep"><span class="n"><b>${esc(b.short)}</b> <span class="muted">· gekocht ${fmtShort(b.cookedAt)}</span>
+        <span class="tag ${b.expires < S.today ? 'bad' : 'ok'}">haltbar bis ${fmtShort(b.expires)}</span></span>
+      <span class="prep-act"><span class="stepper" role="group" aria-label="Portionen von ${esc(b.short)}">
+          <button class="icon-btn" data-act="batch-left" data-id="${b.id}" data-n="${b.left - 1}" title="Eine Portion weniger">–</button>
+          <b>${b.left} ${b.left === 1 ? 'Portion' : 'Portionen'}</b>
+          <button class="icon-btn" data-act="batch-left" data-id="${b.id}" data-n="${b.left + 1}" title="Eine Portion mehr" ${b.left >= 20 ? 'disabled' : ''}>+</button></span>
+        ${b.eaten === 0 ? `<button class="btn sm ghost" data-act="cook" data-id="${b.id}" data-cooked="0" title="Zutaten kommen zurück in den Vorrat">Nicht gekocht</button>` : ''}
+        <button class="icon-btn" data-act="batch-left" data-id="${b.id}" data-n="0" title="Aus dem Kühlschrank entfernen (weggeworfen oder aufgegessen)">${ic('trash')}</button></span></div>`).join('')}</div>
+    <p class="muted small" style="margin-top:8px">Weniger Portionen: die spätesten geplanten Mahlzeiten dieses Gerichts werden ausgelassen. „Nicht gekocht“ legt die Zutaten zurück in den Vorrat.</p></section>` : '';
   return head('Vorrat', 'Was du dahast – mit Menge und Mindesthaltbarkeit. „Gekocht“ zieht die Zutaten automatisch ab.', `<button class="btn" data-act="scan" data-ctx="vorrat">${ic('scan')} Barcode scannen</button>`) + `
+    ${prepHtml}
     <section class="card" style="margin-bottom:16px"><div class="card-head"><h2>Hinzufügen</h2><span class="sub">Tipp: Über „Einkauf“ landet der ganze Wocheneinkauf mit einem Klick hier.</span></div>
       <form class="form-row" data-form="lot-add">
         <label class="f grow">Zutat <select name="ing" data-on="lot-ing" required>${ingOptions()}</select></label>
@@ -758,7 +767,6 @@ VIEWS.vorrat = () => {
         <label class="chk"><input type="checkbox" name="frozen"> eingefroren</label>
         <button class="btn primary">${ic('plus')} Hinzufügen</button></form>
       <p class="muted small" id="packHint" style="margin-top:8px"></p></section>
-    ${prepHtml}
     <section class="card">${S.lots.length ? `<table><thead><tr><th>Zutat</th><th class="num">Menge</th><th>Haltbar bis</th><th>Verwendung</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
       : '<p class="empty">Dein Vorrat ist noch leer. Buche deinen Einkauf über „Einkauf“ oder trage oben einzelne Zutaten ein.</p>'}</section>`;
 };
@@ -1115,7 +1123,7 @@ function fridgeCard() {
       <div class="sub">${left < 0 ? `seit ${fmtShort(b.expires)} über der Haltbarkeit` : left === 0 ? 'hält bis heute' : `hält bis ${fmtShort(b.expires)}`}${next ? ` · nächste Portion ${next === S.today ? 'heute' : fmtShort(next)}` : ''}${b.keepWarn ? ' · eine Portion einfrieren' : ''}</div></div>
       <span class="pill ${cls}">${left < 0 ? 'abgelaufen' : left === 0 ? 'heute' : left === 1 ? '1 Tag' : left + ' Tage'}</span></li>`;
   };
-  return `<section class="card c-5"><div class="card-head"><h2>Kühlschrank</h2><span class="sub">gekochte Portionen</span></div>
+  return `<section class="card c-5"><div class="card-head"><h2>Kühlschrank</h2><button class="link" data-act="nav" data-view="vorrat">Bearbeiten</button></div>
     ${cooked.length ? `<ul class="fridge">${cooked.map(row).join('')}</ul>` : '<p class="muted small">Gerade keine vorgekochten Portionen.</p>'}
     ${frozen.length ? `<p class="muted small" style="margin-top:10px">${ic('snow')} Im Tiefkühler: ${frozen.map(l => `${esc(l.name)} ${amt(l.ing, l.g)}`).join(', ')}</p>` : ''}</section>`;
 }
@@ -1479,6 +1487,7 @@ function closeModal() {
 const ACT = {
   more() { ui.modal = { type: 'more' }; renderModal(); },
   quick(d) { enterQuick(d.q); },
+  'batch-left'(d) { call('/api/batch/left', { id: +d.id, left: Math.max(0, +d.n) }); },
   'qx-add'(d) { const x = S.quickExtras[+d.i]; call('/api/extra/add', { date: d.date || S.day.date, name: x.name, kcal: x.kcal, protein: x.protein }); },
   'fill-add'(d) { const o = S.fill.options[+d.i]; call('/api/extra/add', { date: S.today, name: `${o.label} ${o.name}`, kcal: o.kcal, protein: o.protein, ing: o.ing, g: o.g }); },
   undo(d) {
