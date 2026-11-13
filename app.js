@@ -1,5 +1,5 @@
 'use strict';
-// MealPrep Tracker – Oberfläche. Der Server liefert nach jeder Aktion den kompletten Zustand (S).
+// Kraftkost (früher MealPrep Tracker) – Oberfläche. Der Server liefert nach jeder Aktion den kompletten Zustand (S).
 
 const $ = (s, el = document) => el.querySelector(s);
 const WEB = typeof window.mpCall === 'function'; // Handy-Version: Logik läuft im Browser
@@ -145,7 +145,7 @@ function shopRelevant() {
 function renderNav() {
   const counts = { vorrat: expiring().length, einkauf: (shopRelevant() || { items: [] }).items.length, training: S.gym.active ? 1 : 0 };
   $('#nav').innerHTML = `
-    <div class="brand"><img src="icon.svg" alt=""><div>MealPrep<small>Tracker</small></div></div>
+    <div class="brand"><img src="icon.svg" alt=""><div>Kraftkost<small>Essen &amp; Training</small></div></div>
     ${NAV.map(([v, i, t]) => `<button class="nav-btn ${PRIMARY[v] ? 'prim' : ''} ${ui.view === v ? 'on' : ''}" data-act="nav" data-view="${v}" title="${t}">${ic(i)}<span data-short="${PRIMARY[v] || t}">${t}</span>${counts[v] ? `<i class="count">${counts[v]}</i>` : ''}</button>`).join('')}
     <button class="nav-btn more-btn ${PRIMARY[ui.view] ? '' : 'on'}" data-act="more" title="Mehr">${ic('menu')}<span data-short="Mehr">Mehr</span>${backupDue() ? '<i class="count">1</i>' : ''}</button>
     <div class="spacer"></div>
@@ -163,11 +163,11 @@ function backupDue() {
 }
 async function exportWeb() {
   const r = await window.mpCall('GET', '/api/export?sync=1', '');
-  const name = `mealprep-sync-handy-${S.today}.json`;
+  const name = `kraftkost-sync-handy-${S.today}.json`;
   const file = new File([r.body], name, { type: 'application/json' });
   const done = msg => { lsSet('mealprep-lastexport', S.today); toast(msg); render(); };
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: 'MealPrep Sync-Datei' }); call('/api/state'); return done('Sync-Datei geteilt. Am PC einfach ins Fenster ziehen.'); }
+    try { await navigator.share({ files: [file], title: 'Kraftkost Sync-Datei' }); call('/api/state'); return done('Sync-Datei geteilt. Am PC einfach ins Fenster ziehen.'); }
     catch (e) { if (e.name === 'AbortError') return; }
   }
   const a = document.createElement('a');
@@ -302,7 +302,7 @@ function weekStrip() {
     const cooks = d.cook.map(batchById).filter(b => b && !b.cooked).length;
     return `<button class="${d.date === S.today ? 'today' : ''} ${d.date === S.day.date ? 'sel' : ''}" data-act="day-set" data-date="${d.date}" title="${fmtLong(d.date)}">
       <div class="wd">${wdShort(d.date)}</div><div class="dn">${D(d.date).getDate()}</div><div class="dots">${dots}</div>
-      <div class="kc">${d.meals.length ? num(d.plannedKcal) + ' kcal' : cooks ? 'vorkochen' : '–'}</div></button>`;
+      <div class="kc">${d.meals.length ? num(d.plannedKcal) + ' kcal' : cooks ? 'vorkochen' : '–'}</div>${typeof trainMini === 'function' ? trainMini(d) : ''}</button>`;
   }).join('')}</div>`;
 }
 function budgetCard() {
@@ -406,7 +406,7 @@ VIEWS.plan = () => {
       : `<span class="tag ${okK ? 'ok' : 'warn'}" title="Ziel ${num(set.kcalMin)}–${num(set.kcalMax)} kcal inkl. Shake">${num(d.plannedKcal)} kcal</span><span class="tag ${okP ? 'ok' : 'warn'}" title="Ziel mind. ${num(set.proteinMin)} g inkl. Shake">${num(d.plannedProtein)} g Protein</span>`;
     return `<section class="card day ${d.date === S.today ? 'today' : ''} ${d.date < S.today ? 'past' : ''}">
       <div class="day-info"><div><div class="wd">${WDL[D(d.date).getDay()]}</div><div class="muted small">${dm(d.date)}${d.date === S.today ? ' · heute' : ''}</div></div><div class="tot">${tot}</div></div>
-      <div class="day-main">${main}</div></section>`;
+      <div class="day-main">${typeof trainChips === 'function' ? trainChips(d) : ''}${main}</div></section>`;
   }).join('');
   const banner = ui.swap ? `<div class="banner">${ic('swap')}<span>Tauschen: Wähle das Gericht, mit dem <b>${esc((findMeal(ui.swap) || {}).short || '')}</b> den Platz tauschen soll. Du kannst dafür auch die Woche wechseln.</span><button class="btn sm" data-act="swap-cancel">Abbrechen</button></div>` : '';
   return head('Wochenplan', 'Abhaken, auslassen oder Gerichte tauschen. Die Tagessummen enthalten den Shake.', `<div class="form-row head-tools"><button class="btn sm primary" data-act="gen">${ic('spark')} Nächste Woche planen</button></div><div class="tabs">${tabs}</div>`) + banner + days;
@@ -920,7 +920,7 @@ VIEWS.einstellungen = () => {
       <div class="stack"><label class="f">Beim Öffnen der App zeigen <select data-on="start-opt">${START_OPTS.map(([v, t]) => `<option value="${v}" ${(lsGet('mealprep-start') || 'normal') === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
         <p class="muted small">Direkt-Links: <b>…/heute</b> und <b>…/einkaufsliste</b> öffnen die Schnellansicht. Auf dem iPhone öffnet ein Kurzbefehl die App immer auf ihrer Startseite – dafür ist diese Einstellung da.</p>
         <div class="form-row"><button class="btn" data-act="theme">${ic(s.theme === 'dark' ? 'sun' : 'moon')} ${s.theme === 'dark' ? 'Heller Modus' : 'Dunkler Modus'}</button></div>
-        <p class="muted small">MealPrep Tracker ${esc(S.version)} für das Handy · funktioniert auch ohne Internet.</p></div></section>` : `<section class="card"><div class="card-head"><h2>Daten &amp; Backup</h2></div>
+        <p class="muted small">Kraftkost ${esc(S.version)} (früher MealPrep Tracker) für das Handy · funktioniert auch ohne Internet.</p></div></section>` : `<section class="card"><div class="card-head"><h2>Daten &amp; Backup</h2></div>
       <div class="stack"><div><div class="muted small">Speicherort</div><div class="path">${esc(S.dataDir)}</div></div>
         <p class="muted small">Die App legt bei jedem ersten Start am Tag automatisch eine Sicherung im Unterordner „backups“ an (die letzten 14 bleiben erhalten).</p>
         <div class="form-row"><button class="btn" data-act="backup">Backup jetzt erstellen</button><a class="btn" href="/api/export" download>Export als Datei</a>
@@ -932,7 +932,7 @@ VIEWS.einstellungen = () => {
     <section class="card"><div class="card-head"><h2>App</h2></div>
       <div class="stack"><div class="form-row"><button class="btn" data-act="theme">${ic(s.theme === 'dark' ? 'sun' : 'moon')} ${s.theme === 'dark' ? 'Heller Modus' : 'Dunkler Modus'}</button>
         <button class="btn danger" data-act="quit">App beenden</button></div>
-        <p class="muted small">MealPrep Tracker ${esc(S.version)} · kein Konto, keine Cloud. Schließt du das Fenster, beendet sich die App von selbst.</p></div></section>`}</div>`;
+        <p class="muted small">Kraftkost ${esc(S.version)} (früher MealPrep Tracker) · kein Konto, keine Cloud. Schließt du das Fenster, beendet sich die App von selbst.</p></div></section>`}</div>`;
 };
 
 // ---------- Schnellansicht (Direkt-Links /heute und /einkaufsliste) ----------
@@ -975,7 +975,7 @@ function quickShopWeek() {
 }
 function safariHint() {
   if (!WEB || !isIOS || standalone() || ui.hintClosed) return '';
-  return `<div class="q-hint"><div><b>Du bist im Safari-Tab.</b> Safari und die installierte App haben getrennte Daten. Öffne MealPrep über das Symbol auf dem Home-Bildschirm.</div><button class="icon-btn" data-act="q-hint-x" title="Hinweis schließen">${ic('x')}</button></div>`;
+  return `<div class="q-hint"><div><b>Du bist im Safari-Tab.</b> Safari und die installierte App haben getrennte Daten. Öffne Kraftkost über das Symbol auf dem Home-Bildschirm.</div><button class="icon-btn" data-act="q-hint-x" title="Hinweis schließen">${ic('x')}</button></div>`;
 }
 function quickTop(k) {
   const seg = (v, t, i) => `<button class="q-seg ${k === v ? 'on' : ''}" data-act="q-go" data-q="${v}" aria-pressed="${k === v}">${ic(i)}${t}</button>`;
@@ -1038,7 +1038,7 @@ function shopText(l, mode, skipCart) {
   const cart = cartGet(l.week);
   const items = byAisle(l.items).filter(it => !(skipCart && cart.has(it.ing)));
   if (mode === 'lines') return items.map(it => `${it.name} – ${packText(it)}`).join('\n');
-  let out = `Einkaufsliste Woche ${l.week} (MealPrep)`, cat = null;
+  let out = `Einkaufsliste Woche ${l.week} (Kraftkost)`, cat = null;
   items.forEach(it => { if (it.cat !== cat) { cat = it.cat; out += `\n\n${cat}`; } out += `\n- ${it.name}: ${packText(it)}`; });
   if (l.staples.length) out += `\n\nBasisvorrat prüfen: ${l.staples.join(', ')}`;
   return out;
@@ -1139,7 +1139,7 @@ function fridgeCard() {
 function quickExtraChips(date) {
   const q = S.quickExtras || [];
   if (!q.length) return '';
-  return `<div class="qx-row"><span class="muted small">Schnell eintragen:</span>${q.map((x, i) => `<button class="chip qx" data-act="qx-add" data-i="${i}" data-date="${date}" title="${esc(x.name)}: ${num(x.kcal)} kcal, ${nf1.format(x.protein)} g Protein">+ ${esc(x.name)} <span>${num(x.kcal)} kcal</span></button>`).join('')}</div>`;
+  return `<div class="qx-row"><span class="muted small">Schnell eintragen:</span>${q.map((x, i) => `<button class="chip qx" data-act="qx-add" data-i="${i}" data-date="${date}" title="${esc(x.name)}: ${num(x.kcal)} kcal, ${nf1.format(x.protein)} g Protein"><i class="qx-n">+ ${esc(x.name)}</i> <span>${num(x.kcal)} kcal</span></button>`).join('')}</div>`;
 }
 function fillBox(compact) {
   const f = S.fill;
@@ -1735,7 +1735,7 @@ const FORMS = {
 };
 
 document.addEventListener('click', e => {
-  if (e.target.id === 'modal') { if (!['editor', 'planr', 'import', 'tday', 'exedit', 'gym', 'food'].includes(ui.modal && ui.modal.type)) closeModal(); return; }
+  if (e.target.id === 'modal') { if (!['editor', 'planr', 'import', 'tday', 'exedit', 'gym', 'food', 'session', 'actedit'].includes(ui.modal && ui.modal.type)) closeModal(); return; }
   const el = e.target.closest('[data-act]');
   if (!el || !S) return;
   const fn = ACT[el.dataset.act];
@@ -1880,6 +1880,48 @@ document.addEventListener('visibilitychange', () => {
   if (hiddenAt && Date.now() - hiddenAt > 20 * 60e3 && !ui.modal && S) { const k = startTarget(); if (k) enterQuick(k); }
 });
 call('/api/state');
+
+// ---------- 2.1.1: Wischbare Leisten mit Rand-Verlauf, iOS-Vollbild-Höhe ----------
+function markScrollers(root) {
+  (root || document).querySelectorAll('.tabs').forEach(t => {
+    const upd = () => {
+      const more = t.scrollWidth - t.clientWidth > 2;
+      t.classList.toggle('fade-r', more && t.scrollLeft + t.clientWidth < t.scrollWidth - 2);
+      t.classList.toggle('fade-l', more && t.scrollLeft > 2);
+    };
+    if (!t.dataset.fade) {
+      t.dataset.fade = '1';
+      t.addEventListener('scroll', upd, { passive: true });
+      const on = t.querySelector('.on'); // aktiven Reiter sichtbar machen
+      if (on && t.scrollWidth > t.clientWidth) t.scrollLeft = Math.max(0, on.offsetLeft - t.offsetLeft - 24);
+    }
+    upd();
+  });
+}
+new MutationObserver(() => markScrollers()).observe(document.body, { childList: true, subtree: true });
+addEventListener('resize', () => markScrollers());
+// iOS-Web-App: Nach der Tastatur bleibt die Höhe manchmal zu klein (dunkler Streifen unten, Leiste zu hoch).
+// Dann die volle Höhe neu messen lassen.
+(function healViewport() {
+  const standalone = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  if (!standalone) return;
+  let maxH = innerHeight;
+  addEventListener('resize', () => { maxH = Math.max(maxH, innerHeight); });
+  const heal = () => {
+    const ae = document.activeElement;
+    if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return; // Tastatur offen
+    if (maxH - innerHeight <= 4) return;
+    const app = document.getElementById('app'), v = document.getElementById('view'), st = v ? v.scrollTop : 0;
+    if (!app || app.hidden) return;
+    app.style.display = 'none';
+    void app.offsetHeight;
+    app.style.display = '';
+    if (v) v.scrollTop = st;
+  };
+  document.addEventListener('focusout', e => { if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) setTimeout(heal, 160); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(heal, 160); });
+  addEventListener('pageshow', () => setTimeout(heal, 160));
+})();
 // MealPrep Tracker 2.0 – Training: Übungsdatenbank, Trainingsplaner, Gym-Modus.
 // Baut auf app.js auf (S, ui, call, ACT, FORMS, VIEWS, MODALS, CHANGE, INPUT …).
 
@@ -2461,8 +2503,8 @@ MODALS.burnhelp = () => `<div class="sheet"><div class="sheet-head"><div><h2>Akt
     <li>Aktion <b>„Zahl runden“</b> hinzufügen (auf Einer).</li>
     <li>Aktion <b>„Text“</b> hinzufügen und genau das eintragen: <code>MPH1;kcal=</code> und direkt dahinter die Variable <b>Gerundete Zahl</b> einsetzen.</li>
     <li>Aktion <b>„In die Zwischenablage kopieren“</b> hinzufügen.</li>
-    <li>Kurzbefehl benennen, z. B. „Kalorien an MealPrep“, und zum Home-Bildschirm hinzufügen. Beim ersten Start den Zugriff auf Health erlauben.</li>
-    <li>Täglich: Kurzbefehl antippen, dann MealPrep öffnen → Essen → <b>Einfügen</b>.</li></ol>
+    <li>Kurzbefehl benennen, z. B. „Kalorien an Kraftkost“, und zum Home-Bildschirm hinzufügen. Beim ersten Start den Zugriff auf Health erlauben.</li>
+    <li>Täglich: Kurzbefehl antippen, dann Kraftkost öffnen → Essen → <b>Einfügen</b>.</li></ol>
   <p class="muted small">Die ausführliche Anleitung mit allen Bildschirmen liegt als ANLEITUNG-KALORIEN-KURZBEFEHL.txt im Handy-Paket. Ohne Kurzbefehl geht es auch: Zahl aus der Fitness-App ablesen und oben eintippen.</p>
   <div class="sheet-foot"><button class="btn primary" data-act="modal-close">Verstanden</button></div></div>`;
 
@@ -2499,7 +2541,7 @@ VIEWS.kalorien = () => {
     ${burnCard()}
     <section class="card c-12"><div class="card-head"><h2>Gegessen ${isToday ? 'heute' : 'am ' + dm(d.date)}</h2><button class="btn sm" data-act="scan" data-ctx="essen">${ic('scan')} Barcode</button></div>
       <button class="btn primary q-big food-add" data-act="food-open">${ic('plus')} Essen eintragen</button>
-      ${recent.length ? `<div class="qx-row" style="margin-top:12px"><span class="muted small">Zuletzt gegessen:</span>${recent.map((x, i) => `<button class="chip qx" data-act="recent-add" data-i="${i}" title="Direkt eintragen">${esc(x.name)}<span>${num(x.kcal)} kcal</span></button>`).join('')}</div>` : ''}
+      ${recent.length ? `<div class="qx-row" style="margin-top:12px"><span class="muted small">Zuletzt gegessen:</span>${recent.map((x, i) => `<button class="chip qx" data-act="recent-add" data-i="${i}" title="Direkt eintragen"><i class="qx-n">${esc(x.name)}</i><span>${num(x.kcal)} kcal</span></button>`).join('')}</div>` : ''}
       <div class="rows" style="margin-top:12px">${kcalEntries()}</div></section></div>`;
 };
 
@@ -2670,3 +2712,234 @@ VIEWS.einstellungen = () => einstBase() + `<section class="card" style="margin-t
   <ul class="plain-list">${(GYM.quellen || []).map(q => `<li><b>${esc(q.name)}</b> – ${esc(q.was)}. Lizenz: ${esc(q.lizenz)}. <span class="muted">${esc(q.url || '')}</span></li>`).join('')}
     <li><b>Open Food Facts</b> – Produkt- und Nährwertdaten bei Suche und Barcode. Lizenz: Open Database License (ODbL). <span class="muted">openfoodfacts.org</span></li></ul>
   <p class="muted small">Die Übungszeichnungen stammen von Everkinetic und wurden für die App verkleinert; sie stehen unter CC BY-SA 4.0 und dürfen unter derselben Lizenz weitergegeben werden. Deutsche Übungsnamen und Ausführungshinweise wurden für diese App geschrieben.</p></section>`;
+// MealPrep Tracker 2.1 – feste Gym-Tage, weitere Trainingsarten (Bouldern …), Training im Wochenplan.
+
+const INTENS = [[1, 'leicht'], [2, 'mittel'], [3, 'hart']];
+const WD1 = ['', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']; // 1 = Montag
+const actById = id => (S.activities || []).find(a => a.id === id);
+const trainOf = date => (S.train || []).find(t => t.date === date) || ((S.weeks || []).flatMap(w => w.days).find(d => d.date === date) || {}).train || (S.day.date === date ? S.day.train : null);
+const fmtMin = m => (m >= 60 ? `${Math.floor(m / 60)} Std.${m % 60 ? ` ${m % 60} Min.` : ''}` : `${m} Min.`);
+
+ICONS.mountain = '<path d="M3 20 9.5 8l4 7 2.5-4L21 20z"/><path d="m8 11 1.5 1.5L11 11"/>';
+ICONS.moon = '<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/>';
+
+// ---------- Bausteine: Chips für einen Tag ----------
+const GYM_ST = { geplant: '', laeuft: 'on', erledigt: 'done', ausgefallen: 'miss' };
+const ACT_ST = { geplant: '', erledigt: 'done', ausgelassen: 'miss', offen: 'open' };
+function trainChips(d, compact) {
+  const t = d.train;
+  if (!t) return '';
+  const out = [];
+  if (t.gym) {
+    const g = t.gym, txt = g.status === 'ausgefallen' ? 'Gym ausgefallen' : `Gym · ${esc(g.name)}`;
+    const st = g.status === 'erledigt' ? ' ✓' : g.status === 'laeuft' ? ' · läuft' : '';
+    out.push(`<button class="tchip gym ${GYM_ST[g.status]}" data-act="tr-gym" data-date="${t.date}" title="${g.status === 'ausgefallen' ? 'Ausgefallen – die Einheit kommt beim nächsten Training' : ''}">${ic('dumbbell')}${txt}${st}</button>`);
+  }
+  t.acts.forEach(a => {
+    const st = a.status === 'erledigt' ? ` ✓${a.minutes && !compact ? ' ' + fmtMin(a.minutes) : ''}` : a.status === 'ausgelassen' ? ' · ausgelassen' : a.status === 'offen' ? ' · eintragen?' : '';
+    out.push(`<button class="tchip act ${ACT_ST[a.status]}" data-act="tr-act" data-date="${t.date}" data-type="${esc(a.type)}" ${a.session ? `data-id="${a.session}"` : ''}>${ic('mountain')}${esc(a.name)}${st}</button>`);
+  });
+  if (!out.length) out.push(`<button class="tchip rest" data-act="tr-rest" data-date="${t.date}" title="${t.date <= S.today ? 'Trotzdem eine Einheit eintragen' : ''}">Ruhetag</button>`);
+  return `<div class="tchips">${out.join('')}</div>`;
+}
+function trainMini(d) { // für die Wochenleiste im Überblick
+  const t = d.train;
+  if (!t) return '';
+  const g = t.gym && t.gym.status !== 'ausgefallen' ? t.gym : null, a = t.acts.filter(x => x.status === 'geplant' || x.status === 'erledigt');
+  if (!g && !a.length) return '<div class="tmini rest">Ruhe</div>';
+  return `<div class="tmini ${t.done ? 'done' : ''}">${g ? esc(g.name.split('/')[0]) : ''}${g && a.length ? ' + ' : ''}${a.map(x => esc(x.name)).join(' + ')}</div>`;
+}
+function trainTag(d) { // Kennzeichnung in der Tagesbilanz
+  const t = d.train;
+  if (!t || t.rest) return '';
+  return `<div class="ttag">${ic('dumbbell')}<span>Trainingstag: ${t.labels.map(esc).join(' + ')}${t.done ? ' ✓' : ''}</span></div>`;
+}
+
+// ---------- Tippen auf Chips ----------
+Object.assign(ACT, {
+  'tr-gym'(d) {
+    const t = trainOf(d.date), g = t && t.gym;
+    if (!g) return;
+    if (g.status === 'erledigt') { ui.modal = { type: 'gymsum', id: g.workout }; return renderModal(); }
+    if (g.status === 'laeuft') return openGym();
+    if (g.status === 'ausgefallen') return toast('Ausgefallen. Der Split rückt nicht weiter – diese Einheit kommt beim nächsten Training.');
+    if (S.gym.active) return openGym();
+    if (d.date === S.today) return ACT['gym-start']({ day: g.day });
+    const next = S.gym.days.find(x => x.id === S.gym.next);
+    confirmBox('Heute trainieren?', `${esc(g.name)} ist für ${WDL[D(d.date).getDay()]} geplant. Wenn du heute gehst, ist jetzt ${next ? esc(next.name) : 'die nächste Einheit'} dran, und der Plan rückt danach nach.`, 'Jetzt starten', () => ACT['gym-start']({ day: '' }));
+  },
+  'tr-act'(d) {
+    if (d.id) return openSession({ id: +d.id });
+    if (d.date > S.today) return toast(`${esc((actById(d.type) || {}).name || 'Die Einheit')} kannst du am Tag selbst eintragen.`);
+    openSession({ type: d.type, date: d.date, planned: true });
+  },
+  'tr-rest'(d) { if (d.date <= S.today) openSession({ date: d.date }); },
+  'ses-new'() { openSession({ date: S.today }); },
+  'ses-int'(d) { sesSync(); ui.modal.s.intensity = +d.v; renderModal(); },
+  'ses-min'(d) { sesSync(); ui.modal.s.minutes = +d.v; renderModal(); },
+  'ses-skip'() { const s = ui.modal.s; call('/api/session/save', { type: s.type, date: s.date, skipped: true }).then(r => { if (r) { ui.modal = null; renderModal(); } }); },
+  'ses-del'() { const s = ui.modal.s; confirmBox('Eintrag löschen?', `${esc((actById(s.type) || {}).name || 'Einheit')} am ${fmtShort(s.date)} wird entfernt.`, 'Löschen', () => call('/api/session/delete', { id: s.id }), true); },
+  'gymday'(d) { const cur = S.settings.gymDays || [], v = +d.v; call('/api/gymdays', { days: cur.includes(v) ? cur.filter(x => x !== v) : cur.concat([v]) }); },
+  'act-edit'(d) { const a = d.id ? actById(d.id) : null; ui.modal = { type: 'actedit', a: a ? JSON.parse(JSON.stringify(a)) : { id: '', name: '', days: [], resLabel: '', off: false } }; renderModal(); },
+  'act-day'(d) { const ds = ui.modal.a.days, v = +d.v, i = ds.indexOf(v); if (i >= 0) ds.splice(i, 1); else ds.push(v); syncActForm(); renderModal(); },
+  'act-del'(d) { confirmBox('Trainingsart löschen?', 'Das geht nur, solange noch keine Einheit eingetragen ist. Sonst kannst du sie ausblenden.', 'Löschen', () => call('/api/act/delete', { id: d.id }), true); },
+});
+function sesSync() { // Eingaben vor dem Neuzeichnen übernehmen
+  const f = $('[data-form="ses-save"]'); if (!f) return; const v = fd(f);
+  Object.assign(ui.modal.s, { type: v.type || ui.modal.s.type, date: v.date || ui.modal.s.date, minutes: +v.minutes || ui.modal.s.minutes, result: v.result || '', note: v.note || '', hr: +v.hr || 0, kcal: +v.kcal || 0 });
+}
+function syncActForm() { const f = $('[data-form="act-save"]'); if (!f) return; const v = fd(f); Object.assign(ui.modal.a, { name: v.name, resLabel: v.resLabel, off: !!v.off }); }
+function openSession(o) {
+  let s;
+  if (o.id) { const x = (S.sessions || []).find(y => y.id === o.id); if (!x) return toast('Eintrag nicht gefunden.', true); s = { ...x }; }
+  else {
+    const types = (S.activities || []).filter(a => !a.off);
+    s = { id: 0, type: o.type || (types[0] || {}).id || '', date: o.date || S.today, minutes: 90, intensity: 2, result: '', note: '', hr: 0, kcal: 0 };
+  }
+  ui.modal = { type: 'session', s, planned: !!o.planned };
+  renderModal();
+}
+
+// ---------- Einheit eintragen ----------
+MODALS.session = () => {
+  const m = ui.modal, s = m.s, a = actById(s.type) || { name: 'Einheit', resLabel: '' };
+  const types = (S.activities || []).filter(x => !x.off || x.id === s.type);
+  if (!types.length) return `<div class="sheet narrow"><div class="sheet-head"><h2>Keine Trainingsart</h2><button class="icon-btn" data-act="modal-close" title="Schließen">${ic('x')}</button></div><p>Lege unter Einstellungen → Training eine Trainingsart an, z. B. Bouldern.</p></div>`;
+  const burnDay = s.date === S.day.date ? S.day : null;
+  return `<div class="sheet narrow"><div class="sheet-head"><div><h2>${s.id ? 'Einheit bearbeiten' : 'Einheit eintragen'}</h2><p class="muted">${esc(a.name)} · ${WDL[D(s.date).getDay()]}, ${fmtShort(s.date)}</p></div><button class="icon-btn" data-act="modal-close" title="Schließen">${ic('x')}</button></div>
+    <form class="stack" data-form="ses-save">
+      <div class="form-row nums"><label class="f">Trainingsart <select name="type" data-on="ses-type">${types.map(x => `<option value="${esc(x.id)}" ${x.id === s.type ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></label>
+        <label class="f">Datum <input type="date" name="date" value="${s.date}" max="${S.today}" required></label></div>
+      <div><span class="muted small">Dauer</span><div class="form-row" style="margin-top:4px"><label class="f" style="width:110px">Minuten <input type="number" name="minutes" inputmode="numeric" min="1" max="600" step="1" value="${s.minutes || ''}" required></label>
+        <div class="chips">${[45, 60, 90, 120].map(v => `<button type="button" class="chip ${+s.minutes === v ? 'on' : ''}" data-act="ses-min" data-v="${v}">${fmtMin(v)}</button>`).join('')}</div></div></div>
+      <div><span class="muted small">Intensität</span><div class="chips" style="margin-top:4px">${INTENS.map(([v, t]) => `<button type="button" class="chip big ${s.intensity === v ? 'on' : ''}" data-act="ses-int" data-v="${v}">${t}</button>`).join('')}</div></div>
+      <label class="f">${esc(a.resLabel || 'Leistung')} <span class="muted">(optional)</span><input type="text" name="result" value="${esc(s.result || '')}" maxlength="120" placeholder="${a.id === 'boulder' ? 'z. B. 8 Routen, bis 6a' : ''}"></label>
+      <label class="f">Notiz <span class="muted">(optional)</span><input type="text" name="note" value="${esc(s.note || '')}" maxlength="300"></label>
+      <div class="form-row nums"><label class="f">Ø Puls <span class="muted">(optional)</span><input type="number" name="hr" inputmode="numeric" min="0" max="230" value="${s.hr || ''}" placeholder="z. B. 125"></label>
+        <label class="f">Aktive kcal <span class="muted">(optional)</span><input type="number" name="kcal" inputmode="numeric" min="0" max="5000" value="${s.kcal || ''}" placeholder="aus der Uhr"></label></div>
+      <p class="muted small">${burnDay && burnDay.burnSrc === 'tag' ? `Für diesen Tag sind schon ${num(burnDay.burned)} aktive kcal aus Health eingetragen – darin ist diese Einheit enthalten, die kcal hier zählen dann nicht doppelt.` : 'Holst du abends die aktiven kcal per Kurzbefehl, ist diese Einheit darin schon enthalten. Die kcal hier zählen nur, solange für den Tag kein Health-Wert da ist.'}</p>
+      <div class="sheet-foot">${s.id ? '<button type="button" class="btn ghost danger" data-act="ses-del">Löschen</button>' : m.planned ? '<button type="button" class="btn ghost" data-act="ses-skip">War nicht da</button>' : ''}<span class="grow"></span>
+        <button type="button" class="btn ghost" data-act="modal-close">Abbrechen</button><button class="btn primary">${ic('check')} Speichern</button></div></form></div>`;
+};
+FORMS['ses-save'] = f => {
+  const v = fd(f), s = ui.modal.s;
+  if (v.date > S.today) return toast('Das Datum liegt in der Zukunft.', true);
+  call('/api/session/save', { id: s.id || 0, type: v.type, date: v.date, minutes: Math.round(+v.minutes || 0), intensity: s.intensity || 2, result: v.result || '', note: v.note || '', hr: Math.round(+v.hr || 0), kcal: Math.round(+v.kcal || 0) })
+    .then(r => { if (r) { ui.modal = null; renderModal(); } });
+};
+CHANGE['ses-type'] = el => { sesSync(); ui.modal.s.type = el.value; renderModal(); };
+
+// ---------- Trainingsart bearbeiten (Einstellungen) ----------
+MODALS.actedit = () => {
+  const a = ui.modal.a;
+  return `<div class="sheet narrow"><div class="sheet-head"><h2>${a.id ? 'Trainingsart bearbeiten' : 'Neue Trainingsart'}</h2><button class="icon-btn" data-act="modal-close" title="Schließen">${ic('x')}</button></div>
+    <form class="stack" data-form="act-save"><label class="f">Name <input type="text" name="name" value="${esc(a.name)}" maxlength="40" required placeholder="z. B. Laufen"></label>
+      <div><span class="muted small">Normalerweise an diesen Tagen (optional)</span><div class="chips" style="margin-top:6px">${[1, 2, 3, 4, 5, 6, 7].map(v => `<button type="button" class="chip ${a.days.includes(v) ? 'on' : ''}" data-act="act-day" data-v="${v}">${WD1[v]}</button>`).join('')}</div></div>
+      <label class="f">Bezeichnung für die Leistung <input type="text" name="resLabel" value="${esc(a.resLabel || '')}" maxlength="30" placeholder="z. B. Strecke (km), Routen/Grade"></label>
+      ${a.id ? `<label class="check-line"><input type="checkbox" name="off" ${a.off ? 'checked' : ''}> Ausblenden (nicht mehr planen, Einträge bleiben)</label>` : ''}
+      <div class="sheet-foot">${a.id && a.id !== 'boulder' ? `<button type="button" class="btn ghost danger" data-act="act-del" data-id="${esc(a.id)}">Löschen</button>` : ''}<span class="grow"></span>
+        <button type="button" class="btn ghost" data-act="modal-close">Abbrechen</button><button class="btn primary">Speichern</button></div></form></div>`;
+};
+FORMS['act-save'] = f => { syncActForm(); const a = ui.modal.a; call('/api/act/save', { id: a.id, name: a.name, days: a.days, resLabel: a.resLabel, off: a.off }).then(r => { if (r) { ui.modal = null; renderModal(); } }); };
+
+function trainSettingsCard() {
+  const gd = S.settings.gymDays || [];
+  return `<section class="card"><div class="card-head"><h2>Training</h2></div>
+    <p class="muted small">Gym-Tage: An diesen Wochentagen plant die App den nächsten Split-Tag ein. Fällt ein Tag aus, rückt der Split nicht weiter.</p>
+    <div class="chips" style="margin:8px 0 14px">${[1, 2, 3, 4, 5, 6, 7].map(v => `<button class="chip big ${gd.includes(v) ? 'on' : ''}" data-act="gymday" data-v="${v}">${WD1[v]}</button>`).join('')}</div>
+    <p class="muted small">Weitere Trainingsarten</p>
+    <div class="exlist" style="margin-top:6px">${(S.activities || []).map(a => `<button class="exrow" data-act="act-edit" data-id="${esc(a.id)}"><span class="exrow-n"><b>${esc(a.name)}</b><small>${a.days.length ? 'geplant ' + a.days.map(v => WD1[v]).join(', ') : 'nicht fest geplant'}${a.off ? ' · ausgeblendet' : ''}</small></span><span class="exrow-t">${ic('edit')}</span></button>`).join('')}</div>
+    <button class="btn" data-act="act-edit" style="margin-top:10px">${ic('plus')} Trainingsart hinzufügen</button></section>`;
+}
+{
+  const einstPrev = VIEWS.einstellungen;
+  VIEWS.einstellungen = () => {
+    const html = einstPrev(), i = html.indexOf('<section class="card">', html.indexOf('<div class="grid settings">'));
+    const at = html.indexOf('</section>', i) + '</section>'.length;
+    return i > 0 ? html.slice(0, at) + trainSettingsCard() + html.slice(at) : html + trainSettingsCard();
+  };
+}
+
+// ---------- Überblick: heute und morgen ----------
+function dayTrainBlock(t, label) {
+  if (!t) return '';
+  const isToday = t.date === S.today, rows = [];
+  if (t.gym && t.gym.status !== 'ausgefallen') {
+    const g = t.gym, a = S.gym.active;
+    let btn = '';
+    if (isToday && g.status === 'geplant' && !a) btn = `<button class="btn primary q-big" data-act="gym-start" data-day="${g.day}">${ic('play')} Training starten</button>`;
+    if (isToday && (g.status === 'laeuft' || a)) btn = `<button class="btn primary q-big" data-act="gym-open">${ic('play')} Weiter trainieren</button>`;
+    if (g.status === 'erledigt') btn = `<button class="btn sm" data-act="gym-sum" data-id="${g.workout}">Zusammenfassung</button>`;
+    const day = S.gym.days.find(x => x.id === g.day), info = day && g.status === 'geplant' ? `${day.items.length} Übungen · ${day.items.reduce((s2, it) => s2 + it.sets, 0)} Sätze` : g.status === 'erledigt' ? 'erledigt' : g.status === 'laeuft' ? 'läuft' : '';
+    rows.push(`<div class="trow"><div class="trow-h">${ic('dumbbell')}<div><b>Gym · ${esc(g.name)}</b><span class="muted small">${info}</span></div></div>${btn}</div>`);
+  }
+  t.acts.filter(x => x.status !== 'offen').forEach(x => {
+    let btn = '';
+    if (isToday && x.status === 'geplant') btn = `<div class="form-row"><button class="btn sm primary" data-act="tr-act" data-date="${t.date}" data-type="${esc(x.type)}">War da – eintragen</button><button class="btn sm ghost" data-act="ses-skip-q" data-date="${t.date}" data-type="${esc(x.type)}">Heute nicht</button></div>`;
+    if (x.status === 'erledigt' || x.status === 'ausgelassen') btn = `<button class="btn sm" data-act="tr-act" data-date="${t.date}" data-type="${esc(x.type)}" data-id="${x.session}">${x.status === 'erledigt' ? 'Bearbeiten' : 'Doch eintragen'}</button>`;
+    rows.push(`<div class="trow"><div class="trow-h">${ic('mountain')}<div><b>${esc(x.name)}</b><span class="muted small">${x.status === 'erledigt' ? 'erledigt' + (x.minutes ? ' · ' + fmtMin(x.minutes) : '') : x.status === 'ausgelassen' ? 'ausgelassen' : 'geplant, optional'}</span></div></div>${btn}</div>`);
+  });
+  if (!rows.length) rows.push(`<div class="trow"><div class="trow-h">${ic('moon')}<div><b>Ruhetag</b>${isToday && t.gym && t.gym.status === 'ausgefallen' ? '<span class="muted small">Gym ausgefallen – die Einheit kommt beim nächsten Training.</span>' : ''}</div></div></div>`);
+  return `<div class="tday-block"><span class="eyebrow">${label}</span>${rows.join('')}</div>`;
+}
+ACT['ses-skip-q'] = d => call('/api/session/save', { type: d.type, date: d.date, skipped: true });
+function trainCard() {
+  const tt = trainOf(S.today), tm = trainOf(addDays(S.today, 1)), g = S.gym;
+  const next = g.days.find(d => d.id === g.next);
+  const upcoming = (S.train || []).find(t => t.date > S.today && t.gym && t.gym.status === 'geplant');
+  return `<section class="card c-5 traincard ${g.active ? 'on' : ''}"><div class="card-head"><h2>Training</h2><button class="link" data-act="nav" data-view="training">Plan</button></div>
+    ${dayTrainBlock(tt, 'Heute')}${dayTrainBlock(tm, 'Morgen')}
+    <div class="form-row" style="margin-top:10px;width:100%">${!(tt && tt.gym && tt.gym.status !== 'ausgefallen') && !g.active && next && next.items.length ? `<button class="btn sm" data-act="gym-start" data-day="">${ic('play')} Trotzdem Gym (${esc(next.name)})</button>` : ''}
+      <button class="btn sm ghost" data-act="ses-new">${ic('plus')} Einheit eintragen</button></div>
+    ${upcoming && !(tm && tm.gym && tm.gym.status === 'geplant') ? `<p class="muted small" style="margin-top:6px">Nächstes Gym: ${WDL[D(upcoming.date).getDay()]}, ${dm(upcoming.date)} · ${esc(upcoming.gym.name)}</p>` : ''}</section>`;
+}
+
+// ---------- Training-Ansicht: Woche, Verlauf, Wochenzahlen ----------
+function trainWeekCard() {
+  const days = (S.train || []).slice(0, 7);
+  if (!days.length) return '';
+  return `<section class="card tweek"><div class="card-head"><h2>Diese Woche</h2><button class="btn sm" data-act="ses-new">${ic('plus')} Einheit eintragen</button></div>
+    <div class="tweek-grid">${days.map(t => `<div class="tw ${t.date === S.today ? 'today' : ''} ${t.date < S.today ? 'past' : ''}"><div class="tw-d"><b>${WD1[(D(t.date).getDay() + 6) % 7 + 1]}</b><span>${dm(t.date)}</span></div>${trainChips({ train: t }, true)}</div>`).join('')}</div></section>`;
+}
+{
+  const prevHero = gymHero;
+  gymHero = () => {
+    let h = prevHero();
+    const g = S.gym, up = (S.train || []).find(t => t.date >= S.today && t.gym && t.gym.status === 'geplant');
+    if (!g.active && up) h = h.replace('</p></div>', ` · geplant ${up.date === S.today ? 'heute' : up.date === addDays(S.today, 1) ? 'morgen' : 'am ' + WDL[D(up.date).getDay()]}</p></div>`);
+    return h;
+  };
+  const prevPlan = gymPlanTab;
+  gymPlanTab = () => { const h = prevPlan(), i = h.indexOf('<div class="tday-grid">'); return h.slice(0, i) + trainWeekCard() + h.slice(i); };
+  const prevHist = gymHistTab;
+  gymHistTab = () => {
+    const ss = S.sessions || [];
+    const sesCard = ss.length ? `<section class="card" style="margin-top:14px"><div class="card-head"><h2>Weitere Einheiten</h2><button class="btn sm" data-act="ses-new">${ic('plus')} Eintragen</button></div><table><thead><tr><th>Datum</th><th>Art</th><th class="num">Dauer</th><th>Intensität</th><th>Leistung / Notiz</th><th class="num">Puls</th><th class="num">kcal</th></tr></thead><tbody>
+      ${ss.map(x => `<tr><td><button class="link" data-act="tr-act" data-id="${x.id}" data-date="${x.date}" data-type="${esc(x.type)}">${fmtShort(x.date)}</button></td><td>${esc(x.name)}</td><td class="num">${fmtMin(x.minutes)}</td><td>${(INTENS.find(i => i[0] === x.intensity) || [0, '–'])[1]}</td><td>${esc([x.result, x.note].filter(Boolean).join(' · ') || '–')}</td><td class="num">${x.hr || '–'}</td><td class="num">${x.kcal ? num(x.kcal) : '–'}</td></tr>`).join('')}</tbody></table></section>` : '';
+    return actWeeksCard() + `<div style="margin-top:14px">${prevHist()}</div>` + sesCard;
+  };
+}
+function actWeeksCard() {
+  const ws = (S.actWeeks || []).slice(-6).reverse(), acts = (S.activities || []).filter(a => !a.off || ws.some(w => w.acts[a.id]));
+  const part = (n, min, name) => `<span class="aw-p ${n ? '' : 'zero'}"><b>${n}</b> ${esc(name)}${min ? ` <em>${fmtMin(min)}</em>` : ''}</span>`;
+  return `<section class="card"><div class="card-head"><h2>Einheiten pro Woche</h2><span class="sub">Gym, weitere Trainingsarten und gesamt</span></div>
+    <div class="aw-list">${ws.map(w => `<div class="aw ${w.monday === mondayOf(S.today) ? 'cur' : ''}"><span class="aw-w">${w.monday === mondayOf(S.today) ? 'Diese Woche' : 'ab ' + dm(w.monday)}</span>
+      <div class="aw-parts">${part(w.gymN, w.gymMin, 'Gym')}${acts.map(a => part(w.acts[a.id] || 0, w.actMin[a.id] || 0, a.name)).join('')}</div>
+      <span class="aw-t"><b>${w.totalN}</b> gesamt${w.totalMin ? ` · ${fmtMin(w.totalMin)}` : ''}</span></div>`).join('')}</div></section>`;
+}
+{
+  const prevWeek = gymWeekCard;
+  gymWeekCard = () => actWeeksCard() + `<div style="margin-top:14px">${prevWeek()}</div>`;
+}
+
+// ---------- Tagesbilanz: Trainingstag kennzeichnen ----------
+{
+  const prevBal = kcalBalance;
+  kcalBalance = compact => trainTag(S.day) + prevBal(compact);
+  const prevBurn = burnCard;
+  burnCard = () => {
+    let h = prevBurn();
+    if (S.day.burnSrc === 'einheiten') h = h.replace('<p class="muted small">', '<p class="muted small">Aus deinen eingetragenen Einheiten (kein Health-Wert für den Tag). ');
+    return h;
+  };
+}

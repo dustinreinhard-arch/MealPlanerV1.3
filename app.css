@@ -22,7 +22,8 @@ svg.ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-wid
 
 #app { display: grid; grid-template-columns: 220px 1fr; height: 100vh; }
 .side { background: var(--surface); border-right: 1px solid var(--line); padding: 18px 12px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
-.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; font-weight: 650; font-size: 15.5px; letter-spacing: .1px; }
+.brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 16px; font-weight: 700; font-size: 16.5px; letter-spacing: -.1px; }
+.brand img { border-radius: 8px; }
 .brand img { width: 30px; height: 30px; }
 .brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
 .nav-btn { display: flex; align-items: center; gap: 11px; width: 100%; padding: 9px 11px; border: 0; background: none; border-radius: 10px; color: var(--muted); text-align: left; font-weight: 500; }
@@ -765,3 +766,108 @@ ol.steps code { background: var(--surface2); border-radius: 6px; padding: 1px 6p
 .chip.qx { max-width: 100%; }
 .qx-row .chip.qx { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; display: inline-block; max-width: min(100%, 300px); }
 .plain-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; max-width: 80ch; }
+
+/* ---------- 2.1 Trainingsarten, Gym-Tage ---------- */
+.tchips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.tchip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface2); color: var(--text); border-radius: 99px; padding: 4px 11px 4px 8px; font-size: 13px; font-weight: 600; min-height: 30px; }
+.tchip svg.ic { width: 15px; height: 15px; color: var(--muted); }
+.tchip.gym { border-color: color-mix(in srgb, var(--blue) 45%, var(--line)); }
+.tchip.gym svg.ic { color: var(--blue); }
+.tchip.act svg.ic { color: var(--amber); }
+.tchip.act { border-color: color-mix(in srgb, var(--amber) 40%, var(--line)); }
+.tchip.done { background: var(--ok-bg); border-color: var(--accent); }
+.tchip.done svg.ic { color: var(--accent); }
+.tchip.on { background: var(--ok-bg); border-color: var(--accent); }
+.tchip.miss { opacity: .6; text-decoration: line-through; font-weight: 500; }
+.tchip.open { border-style: dashed; color: var(--muted); }
+.tchip.rest { color: var(--muted); font-weight: 500; background: none; padding-left: 11px; }
+.tmini { font-size: 11px; color: var(--muted); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tmini.done { color: var(--accent); }
+.tmini.rest { opacity: .6; }
+.ttag { display: flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 600; color: var(--blue); margin: -4px 0 10px; }
+.ttag svg.ic { width: 16px; height: 16px; }
+.tday-block { width: 100%; margin-bottom: 8px; }
+.tday-block + .tday-block { border-top: 1px solid var(--line); padding-top: 10px; }
+.trow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 6px 0; }
+.trow-h { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.trow-h > svg.ic { width: 22px; height: 22px; color: var(--muted); flex: none; }
+.trow-h b { display: block; font-size: 17px; }
+.trow .btn.q-big { width: 100%; justify-content: center; }
+.tweek { margin-bottom: 14px; }
+.tweek-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.tw { background: var(--surface2); border-radius: 12px; padding: 8px; border: 1px solid transparent; min-width: 0; }
+.tw.today { border-color: var(--accent); }
+.tw.past { opacity: .8; }
+.tw-d { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 13px; }
+.tw-d span { color: var(--muted); font-size: 12px; }
+.tw .tchips { flex-direction: column; align-items: stretch; margin: 0; }
+.tw .tchip { font-size: 12px; padding: 3px 8px; white-space: normal; text-align: left; line-height: 1.25; }
+.chip.big { padding: 7px 14px; font-size: 14.5px; min-height: 38px; }
+table.mini tr.cur td { font-weight: 600; }
+@media (max-width: 900px) { .tweek-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 680px) {
+  .tweek-grid { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .tw { display: flex; gap: 10px; align-items: center; padding: 6px 10px; }
+  .tw-d { flex-direction: column; margin: 0; width: 44px; flex: none; }
+  .tw .tchips { flex-direction: row; flex-wrap: wrap; }
+}
+.aw-list { display: grid; gap: 2px; }
+.aw { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 6px 14px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.aw:first-child { border-top: 0; }
+.aw.cur .aw-w { color: var(--accent); font-weight: 650; }
+.aw-parts { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.aw-p b { font-variant-numeric: tabular-nums; }
+.aw-p em { font-style: normal; color: var(--muted); font-size: 12.5px; }
+.aw-p.zero { color: var(--muted); }
+.aw-t { white-space: nowrap; font-variant-numeric: tabular-nums; }
+@media (max-width: 680px) { .aw { grid-template-columns: minmax(0, 1fr) auto; } .aw-parts { grid-column: 1 / -1; grid-row: 2; } }
+
+/* ---------- 2.1.1 iPhone-Vollbild und schmale Bildschirme ---------- */
+html { background: var(--bg); }
+html, body { min-height: 100%; }
+body { overflow-x: hidden; }
+.cook { flex-wrap: wrap; min-width: 0; max-width: 100%; }
+.cook > span:not(.tag) { flex: 1 1 180px; min-width: 0; }
+.cook .btn { flex: none; }
+.tabs.fade-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+.tabs.fade-l { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
+.tabs.fade-l.fade-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+@media (max-width: 680px) {
+  /* Die Leiste färbt auch alles darunter ein – kein dunkler Streifen, falls iOS den Bildschirm kürzer meldet */
+  .side::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: 240px; background: var(--surface); pointer-events: none; }
+  .cooks { flex-direction: column; flex-wrap: nowrap; }
+  .cook { width: 100%; padding: 9px 10px 9px 12px; gap: 8px; }
+  .cook > svg.ic { margin-top: 1px; }
+  .cook > span:not(.tag) { flex: 1 1 calc(100% - 30px); }
+  .cook .btn { flex: 1 1 0; justify-content: center; min-width: 0; padding-left: 6px; padding-right: 6px; white-space: nowrap; }
+  .cook .btn svg.ic { width: 15px; height: 15px; }
+  .tabs { scrollbar-width: none; -webkit-overflow-scrolling: touch; scroll-padding: 0 24px; }
+  .tabs::-webkit-scrollbar { display: none; }
+}
+@media (max-width: 360px) { .cook .btn svg.ic { display: none; } }
+/* Installierte App: 100vh enthält dort den Home-Indicator-Bereich, 100dvh nach der Tastatur manchmal nicht */
+@media (display-mode: standalone) and (max-width: 680px) {
+  html, body { min-height: 100vh; }
+  #app { height: 100vh; }
+}
+.qx-row .chip.qx { display: inline-flex; min-width: 0; max-width: 100%; }
+.chip.qx { overflow: hidden; }
+.chip.qx > span { flex: none; }
+.chip.qx .qx-n { font-style: normal; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.strip { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.strip button { min-width: 0; padding-left: 3px; padding-right: 3px; }
+.strip .kc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-actions .btn { min-width: 0; white-space: normal; text-align: center; justify-content: center; }
+@media (max-width: 380px) { .q-actions { gap: 6px; padding: 8px; } .q-actions .btn { font-size: 15px; padding-left: 8px; padding-right: 8px; } .strip { gap: 5px; } .strip .kc { font-size: 10.5px; } }
+@media (max-width: 680px) {
+  .sheet-foot { flex-wrap: wrap; }
+  .sheet-foot > .btn { flex: 1 1 auto; justify-content: center; min-width: 0; }
+  .sheet-foot > .grow:empty { display: none; }
+}
+@media (max-width: 400px) {
+  .g-inputs { gap: 8px; }
+  .g-step { padding: 6px; }
+  .g-step > div { grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 2px; }
+  .g-pm { height: 48px; font-size: 24px; }
+  .g-step input { font-size: 24px; }
+}

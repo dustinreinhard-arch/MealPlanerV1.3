@@ -1,7 +1,7 @@
 {
-  "name": "MealPrep Tracker",
-  "short_name": "MealPrep",
-  "description": "Essensplan, Vorrat, Budget und Tagesbilanz – offline, ohne Konto.",
+  "name": "Kraftkost",
+  "short_name": "Kraftkost",
+  "description": "Essen und Training an einem Ort: Essensplan, Vorrat, Einkauf, Budget, Kalorien, Gym und Bouldern – offline, ohne Konto.",
   "lang": "de",
   "start_url": "./",
   "scope": "./",

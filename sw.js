@@ -1,7 +1,7 @@
 // Offline-Cache: alle App-Dateien werden beim ersten Start gespeichert.
 // Beim Update werden die Dateien frisch vom Server geholt (cache: 'reload'), nicht aus dem Browser-Zwischenspeicher.
 // Die Daten selbst liegen nicht hier, sondern im Speicher der App (localStorage).
-const CACHE = 'mealprep-c9ee2bef62';
+const CACHE = 'mealprep-beca812362';
 // Übungsbilder liegen in einem eigenen Cache, damit sie nicht bei jedem App-Update neu geladen werden.
 const MEDIA = 'mealprep-media-8a05e2f7';
 const FILES = ['./', 'index.html', 'app.js', 'app.css', 'icon.svg', 'wasm_exec.js', 'main.wasm', 'manifest.webmanifest',
