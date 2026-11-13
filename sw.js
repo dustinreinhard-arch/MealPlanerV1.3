@@ -1,14 +1,17 @@
 // Offline-Cache: alle App-Dateien werden beim ersten Start gespeichert.
 // Beim Update werden die Dateien frisch vom Server geholt (cache: 'reload'), nicht aus dem Browser-Zwischenspeicher.
 // Die Daten selbst liegen nicht hier, sondern im Speicher der App (localStorage).
-const CACHE = 'mealprep-fb2a61c57c';
+const CACHE = 'mealprep-c9ee2bef62';
+// Übungsbilder liegen in einem eigenen Cache, damit sie nicht bei jedem App-Update neu geladen werden.
+const MEDIA = 'mealprep-media-8a05e2f7';
 const FILES = ['./', 'index.html', 'app.js', 'app.css', 'icon.svg', 'wasm_exec.js', 'main.wasm', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png', 'heute.html', 'einkaufsliste.html'];
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting()));
+  const media = caches.open(MEDIA).then(c => c.match('uebungen-bilder.bin').then(hit => hit || c.add('uebungen-bilder.bin'))).catch(() => {});
+  e.waitUntil(Promise.all([caches.open(CACHE).then(c => c.addAll(FILES.map(f => new Request(f, { cache: 'reload' })))), media]).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
+  e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== MEDIA).map(k => caches.delete(k)))).then(() => self.clients.claim()));
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
