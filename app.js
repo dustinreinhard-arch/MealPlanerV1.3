@@ -2780,7 +2780,7 @@ Object.assign(ACT, {
   'ses-skip'() { const s = ui.modal.s; call('/api/session/save', { type: s.type, date: s.date, skipped: true }).then(r => { if (r) { ui.modal = null; renderModal(); } }); },
   'ses-del'() { const s = ui.modal.s; confirmBox('Eintrag löschen?', `${esc((actById(s.type) || {}).name || 'Einheit')} am ${fmtShort(s.date)} wird entfernt.`, 'Löschen', () => call('/api/session/delete', { id: s.id }), true); },
   'gymday'(d) { const cur = S.settings.gymDays || [], v = +d.v; call('/api/gymdays', { days: cur.includes(v) ? cur.filter(x => x !== v) : cur.concat([v]) }); },
-  'act-edit'(d) { const a = d.id ? actById(d.id) : null; ui.modal = { type: 'actedit', a: a ? JSON.parse(JSON.stringify(a)) : { id: '', name: '', days: [], resLabel: '', off: false } }; renderModal(); },
+  'act-edit'(d) { const a = d.id ? actById(d.id) : null; ui.modal = { type: 'actedit', a: a ? JSON.parse(JSON.stringify(a)) : { id: '', name: '', days: [], resLabel: '', off: false, scale: [] } }; renderModal(); },
   'act-day'(d) { const ds = ui.modal.a.days, v = +d.v, i = ds.indexOf(v); if (i >= 0) ds.splice(i, 1); else ds.push(v); syncActForm(); renderModal(); },
   'act-del'(d) { confirmBox('Trainingsart löschen?', 'Das geht nur, solange noch keine Einheit eingetragen ist. Sonst kannst du sie ausblenden.', 'Löschen', () => call('/api/act/delete', { id: d.id }), true); },
 });
@@ -2788,7 +2788,7 @@ function sesSync() { // Eingaben vor dem Neuzeichnen übernehmen
   const f = $('[data-form="ses-save"]'); if (!f) return; const v = fd(f);
   Object.assign(ui.modal.s, { type: v.type || ui.modal.s.type, date: v.date || ui.modal.s.date, minutes: +v.minutes || ui.modal.s.minutes, result: v.result || '', note: v.note || '', hr: +v.hr || 0, kcal: +v.kcal || 0 });
 }
-function syncActForm() { const f = $('[data-form="act-save"]'); if (!f) return; const v = fd(f); Object.assign(ui.modal.a, { name: v.name, resLabel: v.resLabel, off: !!v.off }); }
+function syncActForm() { const f = $('[data-form="act-save"]'); if (!f) return; const v = fd(f); Object.assign(ui.modal.a, { name: v.name, resLabel: v.resLabel, off: !!v.off, scale: String(v.scale || '').split(/[,;\n]/).map(x => x.trim()).filter(Boolean) }); }
 function openSession(o) {
   let s;
   if (o.id) { const x = (S.sessions || []).find(y => y.id === o.id); if (!x) return toast('Eintrag nicht gefunden.', true); s = { ...x }; }
@@ -2796,6 +2796,7 @@ function openSession(o) {
     const types = (S.activities || []).filter(a => !a.off);
     s = { id: 0, type: o.type || (types[0] || {}).id || '', date: o.date || S.today, minutes: 90, intensity: 2, result: '', note: '', hr: 0, kcal: 0 };
   }
+  s.routes = { ...(s.routes || {}) }; // eigener Zähler, damit Abbrechen nichts verändert
   ui.modal = { type: 'session', s, planned: !!o.planned };
   renderModal();
 }
@@ -2813,18 +2814,19 @@ MODALS.session = () => {
       <div><span class="muted small">Dauer</span><div class="form-row" style="margin-top:4px"><label class="f" style="width:110px">Minuten <input type="number" name="minutes" inputmode="numeric" min="1" max="600" step="1" value="${s.minutes || ''}" required></label>
         <div class="chips">${[45, 60, 90, 120].map(v => `<button type="button" class="chip ${+s.minutes === v ? 'on' : ''}" data-act="ses-min" data-v="${v}">${fmtMin(v)}</button>`).join('')}</div></div></div>
       <div><span class="muted small">Intensität</span><div class="chips" style="margin-top:4px">${INTENS.map(([v, t]) => `<button type="button" class="chip big ${s.intensity === v ? 'on' : ''}" data-act="ses-int" data-v="${v}">${t}</button>`).join('')}</div></div>
-      <label class="f">${esc(a.resLabel || 'Leistung')} <span class="muted">(optional)</span><input type="text" name="result" value="${esc(s.result || '')}" maxlength="120" placeholder="${a.id === 'boulder' ? 'z. B. 8 Routen, bis 6a' : ''}"></label>
+      <label class="f">${esc(a.resLabel || 'Leistung')} <span class="muted">(optional)</span><input type="text" name="result" value="${esc(s.result || '')}" maxlength="120" placeholder="${a.id === 'boulder' ? 'z. B. Projekt geschafft, neue Halle' : ''}"></label>
+      ${typeof routeCounter === 'function' ? routeCounter(s, a) : ''}
       <label class="f">Notiz <span class="muted">(optional)</span><input type="text" name="note" value="${esc(s.note || '')}" maxlength="300"></label>
       <div class="form-row nums"><label class="f">Ø Puls <span class="muted">(optional)</span><input type="number" name="hr" inputmode="numeric" min="0" max="230" value="${s.hr || ''}" placeholder="z. B. 125"></label>
         <label class="f">Aktive kcal <span class="muted">(optional)</span><input type="number" name="kcal" inputmode="numeric" min="0" max="5000" value="${s.kcal || ''}" placeholder="aus der Uhr"></label></div>
-      <p class="muted small">${burnDay && burnDay.burnSrc === 'tag' ? `Für diesen Tag sind schon ${num(burnDay.burned)} aktive kcal aus Health eingetragen – darin ist diese Einheit enthalten, die kcal hier zählen dann nicht doppelt.` : 'Holst du abends die aktiven kcal per Kurzbefehl, ist diese Einheit darin schon enthalten. Die kcal hier zählen nur, solange für den Tag kein Health-Wert da ist.'}</p>
+      <p class="muted small">${burnDay && burnDay.burnSrc === 'tag' ? `Für diesen Tag sind schon ${num(burnDay.burned)} aktive kcal aus Health eingetragen – darin ist diese Einheit enthalten, die kcal hier zählen dann nicht doppelt.` : 'Holst du abends die aktiven kcal per Kurzbefehl, ist diese Einheit darin schon enthalten. Die kcal hier zählen nur, solange für den Tag kein Health-Wert da ist.'} Lässt du das Feld leer, schätzt die App den Verbrauch aus Dauer, Intensität und Gewicht.</p>
       <div class="sheet-foot">${s.id ? '<button type="button" class="btn ghost danger" data-act="ses-del">Löschen</button>' : m.planned ? '<button type="button" class="btn ghost" data-act="ses-skip">War nicht da</button>' : ''}<span class="grow"></span>
         <button type="button" class="btn ghost" data-act="modal-close">Abbrechen</button><button class="btn primary">${ic('check')} Speichern</button></div></form></div>`;
 };
 FORMS['ses-save'] = f => {
   const v = fd(f), s = ui.modal.s;
   if (v.date > S.today) return toast('Das Datum liegt in der Zukunft.', true);
-  call('/api/session/save', { id: s.id || 0, type: v.type, date: v.date, minutes: Math.round(+v.minutes || 0), intensity: s.intensity || 2, result: v.result || '', note: v.note || '', hr: Math.round(+v.hr || 0), kcal: Math.round(+v.kcal || 0) })
+  call('/api/session/save', { id: s.id || 0, type: v.type, date: v.date, minutes: Math.round(+v.minutes || 0), intensity: s.intensity || 2, result: v.result || '', note: v.note || '', hr: Math.round(+v.hr || 0), kcal: Math.round(+v.kcal || 0), routes: s.routes || {} })
     .then(r => { if (r) { ui.modal = null; renderModal(); } });
 };
 CHANGE['ses-type'] = el => { sesSync(); ui.modal.s.type = el.value; renderModal(); };
@@ -2836,11 +2838,13 @@ MODALS.actedit = () => {
     <form class="stack" data-form="act-save"><label class="f">Name <input type="text" name="name" value="${esc(a.name)}" maxlength="40" required placeholder="z. B. Laufen"></label>
       <div><span class="muted small">Normalerweise an diesen Tagen (optional)</span><div class="chips" style="margin-top:6px">${[1, 2, 3, 4, 5, 6, 7].map(v => `<button type="button" class="chip ${a.days.includes(v) ? 'on' : ''}" data-act="act-day" data-v="${v}">${WD1[v]}</button>`).join('')}</div></div>
       <label class="f">Bezeichnung für die Leistung <input type="text" name="resLabel" value="${esc(a.resLabel || '')}" maxlength="30" placeholder="z. B. Strecke (km), Routen/Grade"></label>
+      <div><label class="f">Schwierigkeitsstufen für den Routen-Zähler <span class="muted">(optional, von leicht nach schwer, mit Komma)</span><input type="text" name="scale" value="${esc((a.scale || []).join(', '))}" maxlength="320" placeholder="leer = kein Zähler" autocomplete="off"></label>
+        <div class="chips" style="margin-top:6px"><span class="muted small">Vorlage:</span><button type="button" class="chip" data-act="act-scale" data-p="fb">Fb-Grade (4 … 7b)</button><button type="button" class="chip" data-act="act-scale" data-p="farben">Farben der Halle</button><button type="button" class="chip" data-act="act-scale" data-p="none">kein Zähler</button></div></div>
       ${a.id ? `<label class="check-line"><input type="checkbox" name="off" ${a.off ? 'checked' : ''}> Ausblenden (nicht mehr planen, Einträge bleiben)</label>` : ''}
       <div class="sheet-foot">${a.id && a.id !== 'boulder' ? `<button type="button" class="btn ghost danger" data-act="act-del" data-id="${esc(a.id)}">Löschen</button>` : ''}<span class="grow"></span>
         <button type="button" class="btn ghost" data-act="modal-close">Abbrechen</button><button class="btn primary">Speichern</button></div></form></div>`;
 };
-FORMS['act-save'] = f => { syncActForm(); const a = ui.modal.a; call('/api/act/save', { id: a.id, name: a.name, days: a.days, resLabel: a.resLabel, off: a.off }).then(r => { if (r) { ui.modal = null; renderModal(); } }); };
+FORMS['act-save'] = f => { syncActForm(); const a = ui.modal.a; call('/api/act/save', { id: a.id, name: a.name, days: a.days, resLabel: a.resLabel, off: a.off, scale: a.scale || [] }).then(r => { if (r) { ui.modal = null; renderModal(); } }); };
 
 function trainSettingsCard() {
   const gd = S.settings.gymDays || [];
@@ -2915,7 +2919,7 @@ function trainWeekCard() {
   gymHistTab = () => {
     const ss = S.sessions || [];
     const sesCard = ss.length ? `<section class="card" style="margin-top:14px"><div class="card-head"><h2>Weitere Einheiten</h2><button class="btn sm" data-act="ses-new">${ic('plus')} Eintragen</button></div><table><thead><tr><th>Datum</th><th>Art</th><th class="num">Dauer</th><th>Intensität</th><th>Leistung / Notiz</th><th class="num">Puls</th><th class="num">kcal</th></tr></thead><tbody>
-      ${ss.map(x => `<tr><td><button class="link" data-act="tr-act" data-id="${x.id}" data-date="${x.date}" data-type="${esc(x.type)}">${fmtShort(x.date)}</button></td><td>${esc(x.name)}</td><td class="num">${fmtMin(x.minutes)}</td><td>${(INTENS.find(i => i[0] === x.intensity) || [0, '–'])[1]}</td><td>${esc([x.result, x.note].filter(Boolean).join(' · ') || '–')}</td><td class="num">${x.hr || '–'}</td><td class="num">${x.kcal ? num(x.kcal) : '–'}</td></tr>`).join('')}</tbody></table></section>` : '';
+      ${ss.map(x => `<tr><td><button class="link" data-act="tr-act" data-id="${x.id}" data-date="${x.date}" data-type="${esc(x.type)}">${fmtShort(x.date)}</button></td><td>${esc(x.name)}</td><td class="num">${fmtMin(x.minutes)}</td><td>${(INTENS.find(i => i[0] === x.intensity) || [0, '–'])[1]}</td><td>${esc([x.summary, x.result, x.note].filter(Boolean).join(' · ') || '–')}</td><td class="num">${x.hr || '–'}</td><td class="num">${x.kcal ? num(x.kcal) : x.est ? '≈ ' + num(x.est) : '–'}</td></tr>`).join('')}</tbody></table></section>` : '';
     return actWeeksCard() + `<div style="margin-top:14px">${prevHist()}</div>` + sesCard;
   };
 }
@@ -2942,4 +2946,329 @@ function actWeeksCard() {
     if (S.day.burnSrc === 'einheiten') h = h.replace('<p class="muted small">', '<p class="muted small">Aus deinen eingetragenen Einheiten (kein Health-Wert für den Tag). ');
     return h;
   };
+}
+// Kraftkost 2.3 – Kurs-Check, Serien & Erfolge, Routen-Zähler, Trainings-Hinweise,
+// Scheiben- und Aufwärmrechner, Verbrauchsschätzung, Protein fürs Geld.
+// Baut auf app.js, gym.js, kcal.js und train.js auf.
+
+ICONS.target = '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>';
+ICONS.medal = '<circle cx="12" cy="15" r="5.5"/><path d="M8.5 3l2 6.8M15.5 3l-2 6.8M8.5 3h7M12 12.8l.9 1.6 1.7.3-1.2 1.3.3 1.8-1.7-.8-1.7.8.3-1.8-1.2-1.3 1.7-.3z"/>';
+const sgnKg = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + nf1.format(Math.abs(v));
+const plural = (n, one, many) => (n === 1 ? one : many);
+
+// ---------- Trainings-Hinweise (Training trifft Essen) ----------
+const COACH_IC = { vorbelastung: 'alert', vorher: 'flame', nachher: 'check', wenig: 'flame' };
+function coachHtml(only) {
+  const hs = (S.coach || []).filter(h => !only || only.includes(h.kind));
+  return hs.map(h => `<div class="task coach ${h.tone === 'warn' ? 'warn' : h.tone === 'info' ? 'info' : ''}"><div class="dot">${ic(COACH_IC[h.kind] || 'spark')}</div>
+    <div class="body"><b>${esc(h.title)}</b><span>${esc(h.text)}</span></div></div>`).join('');
+}
+{
+  const prevTrain = trainCard;
+  trainCard = () => {
+    const h = prevTrain(), c = coachHtml(), i = h.lastIndexOf('</section>');
+    return c && i > 0 ? h.slice(0, i) + `<div class="coach-list">${c}</div>` + h.slice(i) : h;
+  };
+}
+
+// ---------- Serien & Erfolge ----------
+const featNum = (b, v) => (b.group === 'Körper' ? nf1.format(v) : num(v));
+function streakTile(s) {
+  const unit = s.unit === 'Tage' ? plural(s.cur, 'Tag', 'Tage') : plural(s.cur, 'Woche', 'Wochen');
+  const notes = [];
+  if (s.pending && s.cur) notes.push(s.unit === 'Tage' ? 'heute noch offen' : 'diese Woche noch offen');
+  if (s.best > s.cur) notes.push(`Rekord ${s.best}`);
+  else if (s.cur > 1) notes.push('dein Rekord');
+  if (!s.cur && !s.best) notes.push('noch keine Serie');
+  return `<div class="stk ${s.cur ? 'on' : ''}"><div class="stk-n">${ic('flame')}<b>${s.cur}</b><span>${unit}</span></div><div class="stk-l">${esc(s.name)}</div><em>${notes.join(' · ')}</em></div>`;
+}
+function featsCard() {
+  const f = S.feats;
+  if (!f || !f.badges) return '';
+  const n = f.next, fresh = (ui.newFeats || []).map(id => f.badges.find(b => b.id === id)).filter(Boolean);
+  const next = fresh.length ? `<button class="feat-next new" data-act="feats-open"><span class="eyebrow">${ic('medal')} Neuer Erfolg</span><b>${esc(fresh[0].title)}</b>
+      <span class="muted small">${esc(fresh[0].desc)}${fresh.length > 1 ? ` · und ${fresh.length - 1} ${plural(fresh.length - 1, 'weiterer', 'weitere')}` : ''}</span></button>`
+    : n ? `<button class="feat-next" data-act="feats-open"><span class="muted small">Nächster Erfolg</span><b>${esc(n.title)}</b>
+      <span class="muted small">${esc(n.desc)} · ${featNum(n, n.cur)} von ${featNum(n, n.target)}</span><div class="bar"><div class="fill" style="width:${Math.min(100, n.cur / n.target * 100).toFixed(0)}%"></div></div></button>` : '';
+  return `<section class="card c-12 feats"><div class="card-head"><h2>Serien &amp; Erfolge</h2><button class="link" data-act="feats-open">${f.doneN} von ${f.badges.length} Erfolgen</button></div>
+    <div class="feats-body"><div class="stk-grid">${f.streaks.map(streakTile).join('')}</div>${next}</div></section>`;
+}
+MODALS.feats = () => {
+  const f = S.feats, fresh = ui.modal.fresh || [], groups = [];
+  f.badges.forEach(b => { let g = groups.find(x => x.name === b.group); if (!g) groups.push(g = { name: b.group, list: [] }); g.list.push(b); });
+  const row = b => `<li class="badge ${b.done ? 'done' : ''} ${fresh.includes(b.id) ? 'new' : ''}"><span class="badge-ic">${ic(b.done ? 'medal' : 'target')}</span>
+      <div class="badge-b"><b>${esc(b.title)}</b><span>${esc(b.desc)}</span>${b.done ? '' : `<div class="bar"><div class="fill" style="width:${Math.min(100, b.cur / b.target * 100).toFixed(0)}%"></div></div>`}</div>
+      ${b.done ? `<span class="tag ok">${fresh.includes(b.id) ? 'neu' : 'geschafft'}</span>` : `<span class="badge-p">${featNum(b, b.cur)} / ${featNum(b, b.target)}</span>`}</li>`;
+  return `<div class="sheet"><div class="sheet-head"><div><h2>Serien &amp; Erfolge</h2><p class="muted">${f.doneN} von ${f.badges.length} Erfolgen geschafft</p></div><button class="icon-btn" data-act="modal-close" title="Schließen">${ic('x')}</button></div>
+    <div class="stk-grid" style="margin-top:10px">${f.streaks.map(streakTile).join('')}</div>
+    <p class="muted small" style="margin-top:8px">Eine Serie zählt weiter, solange der heutige Tag bzw. die laufende Woche noch offen ist. „Kalorien im Ziel“ heißt: an einem eingetragenen Tag zwischen deinem Mindest- und Höchstwert.</p>
+    ${groups.map(g => `<h3 class="h3 badge-h">${esc(g.name)} <span class="muted small">${g.list.filter(b => b.done).length} von ${g.list.length}</span></h3><ul class="badges">${g.list.map(row).join('')}</ul>`).join('')}
+    <div class="sheet-foot"><button class="btn primary" data-act="modal-close">OK</button></div></div>`;
+};
+ACT['feats-open'] = () => { ui.modal = { type: 'feats', fresh: ui.newFeats || [] }; ui.newFeats = []; renderModal(); };
+// Neue Erfolge erkennen (pro Gerät gemerkt) und einmal melden
+function featsCheck() {
+  if (!S || !S.feats || !S.feats.badges) return false;
+  const done = S.feats.badges.filter(b => b.done).map(b => b.id);
+  let seen = null;
+  try { seen = JSON.parse(lsGet('mealprep-feats') || 'null'); } catch (e) { seen = null; }
+  if (!Array.isArray(seen)) { lsSet('mealprep-feats', JSON.stringify(done)); return false; }
+  const fresh = done.filter(id => !seen.includes(id));
+  if (!fresh.length) return false;
+  lsSet('mealprep-feats', JSON.stringify(seen.concat(fresh)));
+  ui.newFeats = (ui.newFeats || []).concat(fresh);
+  const b = S.feats.badges.find(x => x.id === fresh[0]), t = $('#toast');
+  // nicht über offenen Dialogen (z. B. Abgleich-Bericht) und nicht bei einem ganzen Schwung auf einmal
+  if (b && t && t.hidden && fresh.length <= 3 && (!ui.modal || ui.modal.type === 'gymsum')) toast(`Neuer Erfolg: ${b.title}${fresh.length > 1 ? ` (und ${fresh.length - 1} ${plural(fresh.length - 1, 'weiterer', 'weitere')})` : ''}`);
+  return true;
+}
+{
+  const prevRender = render;
+  render = () => { prevRender(); if (featsCheck() && ui.view === 'dashboard' && !ui.quick) prevRender(); };
+}
+
+// ---------- Überblick mit Serien ----------
+VIEWS.dashboard = () => {
+  const h = new Date().getHours(), hello = h < 11 ? 'Guten Morgen' : h < 18 ? 'Guten Tag' : 'Guten Abend', d = S.day;
+  return head(hello, `${fmtLong(S.today)} · ${planStatusText()}`) + `<div class="grid dash">
+    ${trainCard()}
+    <section class="card c-7"><div class="card-head"><h2>Kalorien ${d.date === S.today ? 'heute' : 'am ' + dm(d.date)}</h2><button class="link" data-act="nav" data-view="kalorien">Essen eintragen</button></div>${kcalBalance(true)}${fillBox(true)}</section>
+    ${todayCard()}
+    <section class="card c-5 tasks-n"><div class="card-head"><h2>Als Nächstes</h2></div>${tasks()}</section>
+    ${featsCard()}
+    ${reviewCard()}${pantryCard()}${budgetCard()}${shopCard()}
+    ${weightCard()}<section class="card c-8"><div class="card-head"><h2>Woche ${curWeek()}</h2><button class="link" data-act="nav" data-view="plan">Wochenplan</button></div>${weekStrip()}</section>
+    ${fridgeCard()}
+  </div>`;
+};
+
+// ---------- Kurs-Check (Gewicht) ----------
+function courseChart(pts, goal) {
+  const narrow = matchMedia('(max-width: 680px)').matches; // am Handy schmaler zeichnen, damit die Beschriftung lesbar bleibt
+  const W = narrow ? 400 : 760, H = narrow ? 250 : 270, L = narrow ? 34 : 44, R = 14, T = 14, B = 30;
+  const t0 = D(pts[0].date).getTime(), t1 = Math.max(D(pts[pts.length - 1].date).getTime(), t0 + 6 * 864e5);
+  const vals = pts.flatMap(p => [p.kg, p.trend]).concat(goal > 0 ? [goal] : []);
+  let lo = Math.floor(Math.min(...vals) - 0.5), hi = Math.ceil(Math.max(...vals) + 0.5);
+  const x = d => L + ((D(d).getTime() - t0) / (t1 - t0)) * (W - L - R), y = k => T + ((hi - k) / (hi - lo)) * (H - T - B);
+  const step = hi - lo > 16 ? 4 : hi - lo > 8 ? 2 : 1;
+  let grid = '';
+  for (let k = lo; k <= hi; k += step) grid += `<line x1="${L}" x2="${W - R}" y1="${y(k)}" y2="${y(k)}" class="g"/><text x="${L - 8}" y="${y(k) + 4}" text-anchor="end">${k}</text>`;
+  const dots = pts.map(p => `<circle class="raw" cx="${x(p.date).toFixed(1)}" cy="${y(p.kg).toFixed(1)}" r="3"><title>${fmtShort(p.date)}: ${nf1.format(p.kg)} kg (Trend ${nf1.format(p.trend)})</title></circle>`).join('');
+  const lab = [pts[0], pts[pts.length - 1]].filter((p, i, a) => i === 0 || p.date !== a[0].date).map((p, i) => `<text x="${x(p.date)}" y="${H - 8}" text-anchor="${i ? 'end' : 'start'}">${dm(p.date)}</text>`).join('');
+  const goalLine = goal > 0 ? `<line class="goal" x1="${L}" x2="${W - R}" y1="${y(goal).toFixed(1)}" y2="${y(goal).toFixed(1)}"/><text class="goal-t" x="${W - R - 4}" y="${(y(goal) - 6).toFixed(1)}" text-anchor="end">Ziel ${nf1.format(goal)} kg</text>` : '';
+  return `<svg class="wchart cchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Gewicht, Trend und Ziel in kg">${grid}${goalLine}${dots}
+    <polyline points="${pts.map(p => `${x(p.date).toFixed(1)},${y(p.trend).toFixed(1)}`).join(' ')}"/>${lab}</svg>
+    <div class="legend"><span><i class="lg-dot"></i>Messwert</span><span><i class="lg-line"></i>Trend (geglättet)</span>${goal > 0 ? '<span><i class="lg-goal"></i>Ziel</span>' : ''}</div>`;
+}
+const COURSE_TONE = { plan: 'ok', ziel: 'ok', schnell: 'warn', stillstand: 'warn', ueber: 'warn', alt: 'warn' };
+function courseCard() {
+  const c = S.course, set = S.settings;
+  if (!c) return '';
+  const stat = (v, l, sub) => `<div class="rv"><b>${v}</b><span>${l}</span>${sub ? `<em>${sub}</em>` : ''}</div>`;
+  const tiles = [];
+  if (c.points.length) tiles.push(stat(`${nf1.format(c.trend)}<small> kg</small>`, 'Trendgewicht', `gemessen ${nf1.format(c.points[c.points.length - 1].kg)} kg`));
+  if (c.hasRate) tiles.push(stat(`${sgnKg(c.rate)}<small> kg</small>`, 'pro Woche', `aus ${c.span} Tagen`));
+  if (c.goal > 0 && c.points.length) tiles.push(c.eta ? stat(dm(c.eta), `Ziel ${nf1.format(c.goal)} kg erreicht`, `in ca. ${nf1.format(c.etaWeeks)} Wochen · noch ${nf1.format(Math.max(0, c.toGo))} kg`)
+    : stat(`${nf1.format(Math.max(0, c.toGo))}<small> kg</small>`, `bis zum Ziel ${nf1.format(c.goal)} kg`, c.status === 'ziel' ? 'geschafft' : 'Prognose, sobald es abwärts geht'));
+  if (c.tdee) tiles.push(stat(`${num(c.tdee)}<small> kcal</small>`, 'dein Tagesverbrauch', `Ø gegessen ${num(c.avgKcal)} kcal an ${c.logDays} Tagen`));
+  const sug = c.suggest ? `<div class="course-sug"><div><b>Vorschlag: ${num(c.suggest.min)}–${num(c.suggest.max)} kcal am Tag</b><span class="muted small">bisher ${num(set.kcalMin)}–${num(set.kcalMax)} kcal</span></div>
+      <button class="btn primary" data-act="course-apply">Übernehmen</button></div>` : '';
+  return `<section class="card c-7 course ${COURSE_TONE[c.status] || ''}"><div class="card-head"><h2>Kurs-Check</h2><span class="sub">${c.hasRate ? 'Tendenz der letzten Wochen' : ''}</span></div>
+    <div class="course-msg"><div class="dot">${ic(c.status === 'ziel' ? 'medal' : 'target')}</div><div><b>${esc(c.title)}</b><span>${esc(c.text)}</span></div></div>${sug}
+    ${tiles.length ? `<div class="rv-grid course-grid">${tiles.join('')}</div>` : ''}
+    <form class="form-row" data-form="goal-save" style="margin-top:12px"><label class="f grow">Zielgewicht (kg) <input type="number" name="goalKg" inputmode="decimal" min="30" max="300" step="0.1" value="${c.goal || ''}" placeholder="z. B. 62"></label>
+      <button class="btn">Ziel speichern</button>${c.goal ? '<button type="button" class="btn ghost" data-act="goal-clear">Entfernen</button>' : ''}</form>
+    <p class="muted small" style="margin-top:8px">Der Trend glättet Tagesschwankungen durch Wasser und Essen. Verbrauch und Vorschlag sind Rechenwerte aus Waage und Essens-Einträgen – kein ärztlicher Rat. Unter ${num(1400)} kcal schlägt die App nichts vor.</p></section>`;
+}
+VIEWS.gewicht = () => {
+  const ws = S.weights, c = S.course, last = ws[ws.length - 1], first = ws[0];
+  const rows = [...ws].reverse().map(w => `<tr><td>${fmtShort(w.date)}</td><td class="num"><b>${nf1.format(w.kg)} kg</b></td><td class="act"><button class="icon-btn" data-act="weight-del" data-date="${w.date}" title="Eintrag löschen">${ic('trash')}</button></td></tr>`).join('');
+  return head('Gewicht', 'Am besten morgens nach dem Aufstehen wiegen – zwei- bis dreimal pro Woche reicht für den Trend.') + `<div class="grid dash">
+    <section class="card c-5"><div class="card-head"><h2>Gewicht eintragen</h2>${last ? `<span class="sub">zuletzt ${rel(last.date)}</span>` : ''}</div>
+      <form class="form-row" data-form="weight-add">
+        <label class="f grow">Gewicht (kg) <input type="number" name="kg" inputmode="decimal" min="30" max="300" step="0.1" placeholder="${last ? nf1.format(last.kg).replace(',', '.') : '65.0'}" required></label>
+        <label class="f grow">Datum <input type="date" name="date" value="${S.today}" max="${S.today}" required></label>
+        <button class="btn primary">Speichern</button></form>
+      <p class="muted small" style="margin-top:10px">Ein Wert pro Tag. Ein neuer Eintrag am selben Tag ersetzt den alten.</p>
+      ${last && first.date !== last.date ? `<p class="muted small" style="margin-top:6px">Seit dem ersten Eintrag am ${dm(first.date)}: <b style="color:var(--text)">${sgnKg(last.kg - first.kg)} kg</b></p>` : ''}</section>
+    ${courseCard()}
+    ${c && c.points.length >= 2 ? `<section class="card c-12"><div class="card-head"><h2>Verlauf</h2><span class="sub">kg</span></div>${courseChart(c.points, c.goal)}</section>` : ''}
+    ${ws.length ? `<section class="card c-12"><div class="card-head"><h2>Einträge</h2></div><table><tbody>${rows}</tbody></table></section>` : ''}</div>`;
+};
+FORMS['goal-save'] = f => { const v = +String(fd(f).goalKg || '').replace(',', '.'); if (!(v > 0)) return toast('Bitte ein Zielgewicht eintragen.', true); call('/api/settings', { goalKg: v }); };
+ACT['goal-clear'] = () => call('/api/settings', { goalKg: 0 });
+ACT['course-apply'] = () => {
+  const s = S.course && S.course.suggest, set = S.settings;
+  if (!s) return;
+  confirmBox('Kalorienziel ändern?', `Neues Ziel: ${num(s.min)}–${num(s.max)} kcal am Tag (bisher ${num(set.kcalMin)}–${num(set.kcalMax)}). Du kannst es jederzeit unter Einstellungen zurückstellen.`, 'Übernehmen', () => call('/api/settings', { kcalMin: s.min, kcalMax: s.max }));
+};
+{
+  const prevWeight = weightCard;
+  weightCard = () => {
+    const h = prevWeight(), c = S.course;
+    if (!c || !c.hasRate) return h;
+    const line = `<div class="muted small">Trend ${nf1.format(c.trend)} kg · ${sgnKg(c.rate)} kg pro Woche${c.eta ? ` · Ziel ca. ${dm(c.eta)}` : ''}</div>`;
+    const i = h.lastIndexOf('<button class="link"');
+    return i > 0 ? h.slice(0, i) + line + h.slice(i) : h;
+  };
+}
+
+// ---------- Verbrauch: Schätzung ----------
+{
+  const prevBurn2 = burnCard;
+  burnCard = () => {
+    let h = prevBurn2();
+    const off = !!S.settings.noBurnEst;
+    if (S.day.burnSrc === 'schaetzung') h = h.replace('<p class="muted small">', '<p class="muted small"><b style="color:var(--text)">Geschätzt</b> aus deinen Einheiten (Dauer, Intensität, Körpergewicht). Ein Wert aus Apple Health ersetzt die Schätzung. ');
+    const sw = `<div style="margin-top:14px"><span class="muted small">Training ohne kcal-Angabe</span>
+      <div class="chips" style="margin-top:6px"><button class="chip ${off ? '' : 'on'}" data-act="burn-est" data-v="1">Verbrauch schätzen</button><button class="chip ${off ? 'on' : ''}" data-act="burn-est" data-v="0">nicht mitzählen</button></div></div>`;
+    const i = h.lastIndexOf('</section>');
+    return i > 0 ? h.slice(0, i) + sw + h.slice(i) : h;
+  };
+}
+ACT['burn-est'] = d => call('/api/settings', { noBurnEst: d.v !== '1' });
+{
+  const prevSum = MODALS.gymsum;
+  MODALS.gymsum = () => {
+    let h = prevSum();
+    const w = S.gym.history.find(x => x.id === ui.modal.id);
+    if (!w) return h;
+    const extra = (w.kcal ? `<p class="muted small" style="margin-top:10px">${ic('flame')} ca. ${num(w.kcal)} aktive kcal (geschätzt aus Dauer und Körpergewicht)</p>` : '')
+      + (w.date === S.today ? coachHtml(['nachher']) : '');
+    return extra ? h.replace('<ul class="sumlist">', `<div class="coach-list">${extra}</div><ul class="sumlist">`) : h;
+  };
+}
+
+// ---------- Bouldern: Routen-Zähler ----------
+const SCALE_PRESETS = { fb: ['4', '5a', '5b', '5c', '6a', '6a+', '6b', '6b+', '6c', '6c+', '7a', '7a+', '7b'], farben: ['Gelb', 'Grün', 'Orange', 'Blau', 'Rot', 'Schwarz', 'Weiß'], none: [] };
+function rtSummary(s, scale) {
+  const r = s.routes || {}, total = Object.values(r).reduce((a, b) => a + b, 0);
+  if (!total) return 'noch nichts gezählt';
+  let top = -1;
+  Object.keys(r).forEach(g => { if (r[g] > 0) top = Math.max(top, scale.indexOf(g)); });
+  return `${total} ${plural(total, 'Route', 'Routen')}${top >= 0 ? ' · bis ' + scale[top] : ''}`;
+}
+function routeCounter(s, a) {
+  const scale = (a && a.scale) || [], extra = Object.keys(s.routes || {}).filter(g => !scale.includes(g));
+  if (!scale.length && !extra.length) return '';
+  return `<div class="rt"><div class="rt-head"><span class="muted small">Routen zählen <span class="muted">(optional) – Plus tippen für jede geschaffte Route</span></span><b id="rtSum">${esc(rtSummary(s, scale))}</b></div>
+    <div class="rt-grid">${extra.concat(scale).map(g => { const n = (s.routes || {})[g] || 0;
+      return `<div class="rt-cell ${n ? 'on' : ''}"><button type="button" class="rt-pm" data-act="rt-add" data-g="${esc(g)}" data-d="-1" aria-label="${esc(g)}: eine weniger">−</button>
+        <button type="button" class="rt-mid" data-act="rt-add" data-g="${esc(g)}" data-d="1" aria-label="${esc(g)}: eine mehr"><span>${esc(g)}</span><b>${n}</b></button>
+        <button type="button" class="rt-pm" data-act="rt-add" data-g="${esc(g)}" data-d="1" aria-label="${esc(g)}: eine mehr">+</button></div>`; }).join('')}</div></div>`;
+}
+ACT['rt-add'] = (d, el) => {
+  const s = ui.modal && ui.modal.s;
+  if (!s) return;
+  s.routes = s.routes || {};
+  const n = Math.max(0, Math.min(300, (s.routes[d.g] || 0) + +d.d));
+  if (n) s.routes[d.g] = n; else delete s.routes[d.g];
+  const cell = el.closest('.rt-cell'), a = actById(s.type);
+  if (cell) { cell.classList.toggle('on', n > 0); cell.querySelector('.rt-mid b').textContent = n; }
+  const sum = $('#rtSum'); if (sum) sum.textContent = rtSummary(s, (a && a.scale) || []);
+};
+ACT['act-scale'] = d => { syncActForm(); ui.modal.a.scale = SCALE_PRESETS[d.p].slice(); renderModal(); };
+
+// ---------- Bouldern: Fortschritt ----------
+function climbCard(c) {
+  if (!c.count) return `<section class="card" style="margin-top:14px"><div class="card-head"><h2>${esc(c.name)}</h2><span class="sub">Routen-Zähler</span></div>
+    <p class="empty">Zähl beim Eintragen einer Einheit deine geschafften Routen je Schwierigkeit – dann siehst du hier deine Pyramide, den höchsten Grad und den Verlauf.</p>
+    <button class="btn sm" data-act="ses-new">${ic('plus')} Einheit eintragen</button></section>`;
+  const used = c.levels.map((l, i) => (l.n ? i : -1)).filter(i => i >= 0), lo = Math.max(0, used[0] - 1), hi = Math.min(c.levels.length - 1, used[used.length - 1] + 1);
+  const lv = c.levels.slice(lo, hi + 1).reverse(), mx = Math.max(1, ...lv.map(l => l.n));
+  const pts = c.sessions.map(x => ({ d: x.date, v: x.total, s: x.top ? 'bis ' + x.top : '' }));
+  const recent = c.sessions.slice(-8).reverse();
+  return `<section class="card" style="margin-top:14px"><div class="card-head"><h2>${esc(c.name)}</h2><span class="sub">${c.count} ${plural(c.count, 'Einheit', 'Einheiten')} mit Routen-Zähler</span></div>
+    <div class="rv-grid sum3"><div class="rv"><b>${esc(c.bestGrade || '–')}</b><span>Höchster Grad</span><em>${c.bestDate ? fmtShort(c.bestDate) : ''}</em></div>
+      <div class="rv"><b>${num(c.total)}</b><span>Routen gesamt</span></div><div class="rv"><b>${nf1.format(c.avg)}</b><span>Routen je Einheit</span></div></div>
+    <div class="prog-grid" style="margin-top:14px"><div><p class="h3">Pyramide</p><p class="muted small">Geschaffte Routen je Stufe – breit unten, spitz oben ist gesund.</p>
+        <div class="mbars pyr">${lv.map(l => `<div class="mbar"><span>${esc(l.grade)}</span><div><i style="width:${(l.n / mx * 100).toFixed(0)}%"></i></div><b>${l.n}</b><em>${l.n8 && l.n8 !== l.n ? l.n8 + ' in 8 Wo.' : ''}</em></div>`).join('')}</div></div>
+      <div>${gLine('cl-' + c.type, 'Routen je Einheit', pts, 'Routen', true)}
+        <div class="chips" style="margin-top:8px">${recent.map(x => `<span class="tag ${x.record ? 'star' : ''}">${x.record ? ic('trophy') + ' ' : ''}${dm(x.date)} · ${esc(x.top || '–')}</span>`).join('')}</div>
+        <p class="muted small" style="margin-top:6px">Schwerster Grad der letzten Einheiten; der Pokal markiert einen neuen Höchstgrad.</p></div></div></section>`;
+}
+{
+  const prevProg = gymProgTab;
+  gymProgTab = () => prevProg() + (S.climb || []).map(climbCard).join('');
+}
+
+// ---------- Gym-Modus: Scheiben- und Aufwärmrechner ----------
+const PLATES = { cache: {}, busy: {} };
+const BAR_STEPS = [20, 15, 10, 7.5];
+function barsGet() { try { return JSON.parse(lsGet('mealprep-bars') || '{}') || {}; } catch (e) { return {}; } }
+function barOf(e) { const b = barsGet()[e.id]; return b > 0 ? b : /\bSZ\b|SZ-/i.test(e.n) ? 10 : 20; }
+function platesCtx() {
+  const a = S.gym.active;
+  if (!a || !ui.g || ui.g.panel || ui.g.idx == null || ui.g.idx < 0 || ui.g.edit != null) return null;
+  const it = a.items[ui.g.idx];
+  if (!it) return null;
+  const e = exGet(it.ex), withBar = e.e === 'Langhantel', w = +ui.g.w || 0;
+  const warm = it.log.length === 0 && e.k === 'g' && e.e !== 'Körpergewicht';
+  if ((!withBar && !warm) || w <= 0) return null;
+  const bar = withBar ? barOf(e) : 0;
+  const step = e.e === 'Kurzhantel' ? 2 : 2.5;
+  return { e, bar, key: `${w}|${bar}|${warm ? 1 : 0}|${step}`, url: `/api/gym/plates?w=${w}&bar=${bar}&warm=${warm ? 1 : 0}&step=${step}` };
+}
+function platesInner(c) {
+  const p = PLATES.cache[c.key];
+  if (!p) return '<span class="muted small">…</span>';
+  const warm = (p.warm || []).length ? `<span class="gp-warm">Aufwärmen: ${p.warm.map(x => `${nfk.format(x.w)} × ${x.r}`).join(' · ')}</span>` : '';
+  const line = c.bar ? `<span class="gp-line">${ic('dumbbell')}<b>${esc(p.text)}</b></span><button class="chip" data-act="g-bar" title="Gewicht der Stange ändern">Stange ${nfk.format(c.bar)} kg</button>` : '';
+  return line + warm;
+}
+function platesLoad(c) {
+  if (PLATES.cache[c.key] || PLATES.busy[c.key]) return;
+  PLATES.busy[c.key] = true;
+  apiGet(c.url).then(r => { if (r && r.plates) PLATES.cache[c.key] = r.plates; }).catch(() => {}).then(() => {
+    delete PLATES.busy[c.key];
+    const now = platesCtx(), box = $('#gPlates');
+    if (box && now && now.key === c.key) box.innerHTML = platesInner(now);
+  });
+}
+function platesRefresh() {
+  const box = $('#gPlates'), c = platesCtx();
+  if (!box) return;
+  if (!c) { box.innerHTML = ''; return; }
+  if (PLATES.cache[c.key]) box.innerHTML = platesInner(c); else platesLoad(c);
+}
+{
+  const prevGym = MODALS.gym;
+  MODALS.gym = () => {
+    const h = prevGym(), c = platesCtx();
+    if (!c) return h;
+    const i = h.indexOf('<p class="g-target">'), j = i >= 0 ? h.indexOf('</p>', i) : -1;
+    if (j < 0) return h;
+    platesLoad(c);
+    return h.slice(0, j + 4) + `<div class="g-plates" id="gPlates">${platesInner(c)}</div>` + h.slice(j + 4);
+  };
+  const prevStep = ACT['g-step'];
+  ACT['g-step'] = d => { prevStep(d); if (d.f === 'w') platesRefresh(); };
+  const prevVal = INPUT['g-val'];
+  INPUT['g-val'] = el => { prevVal(el); if (el.dataset.f === 'w') platesRefresh(); };
+}
+ACT['g-bar'] = () => {
+  const c = platesCtx();
+  if (!c) return;
+  const bars = barsGet(), next = BAR_STEPS[(BAR_STEPS.indexOf(c.bar) + 1) % BAR_STEPS.length];
+  bars[c.e.id] = next; lsSet('mealprep-bars', JSON.stringify(bars));
+  platesRefresh();
+};
+
+// ---------- Budget: Protein fürs Geld ----------
+function proteinValueCard() {
+  const pv = S.protValue;
+  if (!pv || (!pv.ings.length && !pv.recipes.length)) return '';
+  const mi = Math.max(0.01, ...pv.ings.map(x => x.per100p)), mr = Math.max(0.01, ...pv.recipes.map(x => x.per30));
+  return `<section class="card" style="margin-top:16px"><div class="card-head"><h2>Protein fürs Geld</h2><span class="sub">nach deinen Preisen</span></div>
+    <div class="prog-grid"><div><p class="h3">Zutaten</p><p class="muted small">Was 100 g Protein kosten – und wie viele kcal du für 30 g Protein mitisst.</p>
+        <div class="pv-list">${pv.ings.map(x => `<div class="pv"><div class="pv-n"><b>${esc(x.name)}</b><span>${num(x.kcal30)} kcal je 30 g Protein · ${esc(x.src || 'Preis')}</span></div>
+          <div class="pv-bar"><i style="width:${(x.per100p / mi * 100).toFixed(0)}%"></i></div><b class="pv-v">${eur(x.per100p)}</b></div>`).join('')}</div></div>
+      <div><p class="h3">Deine Gerichte</p><p class="muted small">Was 30 g Protein in einer Portion kosten.</p>
+        <div class="pv-list">${pv.recipes.map(x => `<div class="pv"><div class="pv-n"><button class="link strong" data-act="recipe" data-id="${esc(x.recipe)}">${esc(x.name)}</button><span>${eur(x.cost)} je Portion · ${num(x.protein)} g Protein · ${num(x.kcal)} kcal</span></div>
+          <div class="pv-bar"><i style="width:${(x.per30 / mr * 100).toFixed(0)}%"></i></div><b class="pv-v">${eur(x.per30)}</b></div>`).join('') || '<p class="empty">Noch kein Gericht mit vollständigen Preisen.</p>'}</div></div></div>
+    <p class="muted small" style="margin-top:10px">Gerechnet mit dem zuletzt bezahlten Preis, sonst mit dem Richtpreis der Packung. Kurzer Balken = günstig.</p></section>`;
+}
+{
+  const prevBudget = VIEWS.budget;
+  VIEWS.budget = () => prevBudget() + proteinValueCard();
 }
